@@ -103,17 +103,15 @@ class UserController extends Controller
 
     public function updateAvatar(Request $request, $id)
     {
-        $user = User::find($id);
-        if (!$user) {
-            return response()->json(['status' => 0, 'message' => 'User not found']);
-        }
-
         $this->validate($request, [
-            'avatar' => 'required|image|mimes:jpeg,png,jpg|max:2048' // max 2MB
+            'avatar' => 'required|image|mimes:jpeg,png,jpg|max:2048', // max 2MB
+            'user_id' => 'required|exists:users_elsid,id'
         ]);
 
-        if ($request->hasFile('avatar')) {
-            // Create uploads directory if it doesn't exist
+        // Use user_id from request instead of URL parameter for mobile apps
+        $user = User::find($request->user_id);
+
+        try {
             $uploadPath = 'uploads/avatars';
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0777, true);
@@ -125,19 +123,33 @@ class UserController extends Controller
             }
 
             $file = $request->file('avatar');
-            $fileName = time() . '_' . $file->getClientOriginalName();
+            $fileName = time() . '_' . str_replace(' ', '_', $file->getClientOriginalName());
             $file->move($uploadPath, $fileName);
             $avatarPath = $uploadPath . '/' . $fileName;
 
             $user->update(['avatar' => $avatarPath]);
+
             return response()->json([
                 'status' => 1,
                 'message' => 'Avatar updated successfully',
-                'avatar' => $avatarPath
+                'user' => [
+                    'id' => $user->id,
+                    'fullname' => $user->fullname,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'address' => $user->address,
+                    'city' => $user->city,
+                    'province' => $user->province,
+                    'postal_code' => $user->postal_code,
+                    'avatar' => $avatarPath
+                ]
             ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Failed to update avatar: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json(['status' => 0, 'message' => 'No avatar file uploaded']);
     }
 
     public function delete($id)

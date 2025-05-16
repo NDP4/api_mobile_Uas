@@ -26,7 +26,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('users', 'UserController@index');
     $router->get('users/{id}', 'UserController@show');
     $router->put('users/{id}', 'UserController@update');
-    $router->post('users/{id}/avatar', 'UserController@updateAvatar');
+    $router->post('users/avatar', 'UserController@updateAvatar');
     $router->delete('users/{id}', 'UserController@delete');
     $router->get('user/profile', 'UserController@getProfile');
 
