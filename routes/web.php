@@ -25,9 +25,10 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     // User management routes
     $router->get('users', 'UserController@index');
     $router->get('users/{id}', 'UserController@show');
-    $router->post('users/{id}', 'UserController@update');
+    $router->put('users/{id}', 'UserController@update');
     $router->post('users/{id}/avatar', 'UserController@updateAvatar');
     $router->delete('users/{id}', 'UserController@delete');
+    $router->get('user/profile', 'UserController@getProfile');
 
     // Product routes
     $router->get('/products', 'ProductController@index');

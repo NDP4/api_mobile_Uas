@@ -51,10 +51,15 @@ class UserController extends Controller
             'status' => 1,
             'message' => 'Login successful',
             'user' => [
+                'id' => $user->id,
                 'fullname' => $user->fullname,
                 'email' => $user->email,
                 'phone' => $user->phone,
-                'address' => $user->address
+                'address' => $user->address,
+                'city' => $user->city,
+                'province' => $user->province,
+                'postal_code' => $user->postal_code,
+                'avatar' => $user->avatar
             ]
         ]);
     }
@@ -76,7 +81,24 @@ class UserController extends Controller
         ]);
 
         $user->update($request->all());
-        return response()->json(['status' => 1, 'message' => 'User updated successfully']);
+
+        // Refresh user data
+        $user = User::find($id);
+        return response()->json([
+            'status' => 1,
+            'message' => 'User updated successfully',
+            'user' => [
+                'id' => $user->id,
+                'fullname' => $user->fullname,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'city' => $user->city,
+                'province' => $user->province,
+                'postal_code' => $user->postal_code,
+                'avatar' => $user->avatar
+            ]
+        ]);
     }
 
     public function updateAvatar(Request $request, $id)
@@ -147,5 +169,29 @@ class UserController extends Controller
     {
         $users = User::all();
         return response()->json(['status' => 1, 'users' => $users]);
+    }
+
+    public function getProfile(Request $request)
+    {
+        $this->validate($request, [
+            'user_id' => 'required|exists:users_elsid,id'
+        ]);
+
+        $user = User::find($request->user_id);
+
+        return response()->json([
+            'status' => 1,
+            'user' => [
+                'id' => $user->id,
+                'fullname' => $user->fullname,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'city' => $user->city,
+                'province' => $user->province,
+                'postal_code' => $user->postal_code,
+                'avatar' => $user->avatar
+            ]
+        ]);
     }
 }
