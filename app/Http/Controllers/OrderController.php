@@ -168,4 +168,76 @@ class OrderController extends Controller
             'message' => 'Order status updated successfully'
         ]);
     }
+
+    public function getPurchaseHistory($userId)
+    {
+        $orders = Order::with(['items.product', 'items.variant'])
+            ->where('user_id', $userId)
+            ->where('status', 'delivered')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($order) {
+                $order->items->map(function ($item) {
+                    $item->can_reorder = true;
+                    if ($item->variant_id) {
+                        $variant = ProductVariant::find($item->variant_id);
+                        $item->can_reorder = $variant && $variant->stock > 0;
+                    } else {
+                        $product = Product::find($item->product_id);
+                        $item->can_reorder = $product && $product->main_stock > 0;
+                    }
+                    return $item;
+                });
+                return $order;
+            });
+
+        return response()->json([
+            'status' => 1,
+            'purchase_history' => $orders
+        ]);
+    }
+
+    public function reorder(Request $request)
+    {
+        $this->validate($request, [
+            'order_id' => 'required|exists:orders_elsid,id',
+            'items' => 'required|array',
+            'items.*.order_item_id' => 'required|exists:order_items_elsid,id'
+        ]);
+
+        try {
+            $originalOrder = Order::with('items')->findOrFail($request->order_id);
+            $selectedItems = collect($request->items)->pluck('order_item_id');
+
+            $items = $originalOrder->items->whereIn('id', $selectedItems)
+                ->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'variant_id' => $item->variant_id,
+                        'quantity' => 1 // Default to 1 for reorders
+                    ];
+                })->toArray();
+
+            // Create new request with items
+            $newRequest = new Request();
+            $newRequest->merge([
+                'user_id' => $originalOrder->user_id,
+                'items' => json_encode($items),
+                'shipping_address' => $originalOrder->shipping_address,
+                'shipping_city' => $originalOrder->shipping_city,
+                'shipping_province' => $originalOrder->shipping_province,
+                'shipping_postal_code' => $originalOrder->shipping_postal_code,
+                'shipping_cost' => $originalOrder->shipping_cost,
+                'courier' => $originalOrder->courier,
+                'courier_service' => $originalOrder->courier_service
+            ]);
+
+            return $this->store($newRequest);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Failed to reorder: ' . $e->getMessage()
+            ], 400);
+        }
+    }
 }

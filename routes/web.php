@@ -38,12 +38,21 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/products/view-count', 'ProductController@updateViewCount');
     $router->get('/products/{productId}/variants', 'ProductController@getVariants');
 
+    // Review routes
+    $router->get('/products/{productId}/reviews', 'ReviewController@index');
+    $router->post('/reviews', 'ReviewController@store');
+    $router->put('/reviews/{id}', 'ReviewController@update');
+    $router->delete('/reviews/{id}', 'ReviewController@destroy');
+    $router->get('/users/{userId}/reviews', 'ReviewController@userReviews');
+
     // Order routes
     $router->get('/orders', 'OrderController@index');
     $router->get('/orders/{id}', 'OrderController@show');
     $router->post('/orders', 'OrderController@store');
     $router->get('/users/{userId}/orders', 'OrderController@getUserOrders');
     $router->put('/orders/{id}/status', 'OrderController@updateStatus');
+    $router->get('/users/{userId}/purchase-history', 'OrderController@getPurchaseHistory');
+    $router->post('/orders/reorder', 'OrderController@reorder');
 
     // Payment routes
     $router->post('/payments/create', 'PaymentController@createPayment');
@@ -54,4 +63,16 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('/shipping/provinces', 'RajaOngkirController@getProvinces');
     $router->get('/shipping/cities', 'RajaOngkirController@getCities');
     $router->post('/shipping/calculate', 'RajaOngkirController@calculateShipping');
+
+    // Banner routes
+    $router->get('/banners', 'BannerController@index');
+    $router->post('/banners', 'BannerController@store');
+    $router->put('/banners/{id}', 'BannerController@update');
+    $router->delete('/banners/{id}', 'BannerController@destroy');
+
+    // Wishlist routes
+    $router->get('/wishlist', 'WishlistController@index');
+    $router->post('/wishlist', 'WishlistController@store');
+    $router->delete('/wishlist', 'WishlistController@destroy');
+    $router->get('/wishlist/check', 'WishlistController@check');
 });
