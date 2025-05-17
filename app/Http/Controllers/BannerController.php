@@ -34,17 +34,17 @@ class BannerController extends Controller
 
             $images = [];
             if ($request->hasFile('images')) {
-                $uploadPath = 'public/uploads/banners';
+                $uploadPath = storage_path('app/public/banners');
 
                 // Create directory if it doesn't exist
-                if (!Storage::exists($uploadPath)) {
-                    Storage::makeDirectory($uploadPath);
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
-                    $fileName = time() . '_' . $index . '_' . $image->getClientOriginalName();
-                    $path = Storage::putFileAs($uploadPath, $image, $fileName);
-                    $imagePath = storage_path('app/' . $path);
+                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                    $image->move($uploadPath, $fileName);
+                    $imagePath = $uploadPath . '/' . $fileName;
 
                     BannerImage::create([
                         'banner_id' => $banner->id,
