@@ -121,32 +121,18 @@ class ProductController extends Controller
 
             $product = Product::findOrFail($id);
 
-            $this->validate($request, [
-                'title' => 'required|string',
-                'price' => 'required|numeric|min:0',
-                'main_stock' => 'required|integer|min:0',
-                'weight' => 'required|integer|min:1',
-                'variants' => 'nullable|string',
-                'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
-            ]);
-
             // Update basic product info
-            $product->fill($request->only([
-                'title',
-                'description',
-                'category',
-                'price',
-                'discount',
-                'main_stock',
-                'weight'
-            ]));
-
-            if ($request->has('main_stock')) {
-                $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
-            }
+            $product->title = $request->input('title');
+            $product->description = $request->input('description');
+            $product->category = $request->input('category');
+            $product->price = $request->input('price');
+            $product->discount = $request->input('discount', 0);
+            $product->main_stock = $request->input('main_stock');
+            $product->weight = $request->input('weight');
+            $product->status = $request->input('main_stock') > 0 ? 'available' : 'unavailable';
 
             // Update variants
-            $variantsData = $request->has('variants') ? json_decode($request->variants, true) : [];
+            $variantsData = $request->has('variants') ? json_decode($request->input('variants'), true) : [];
             $product->has_variants = !empty($variantsData);
 
             // Delete existing variants
@@ -197,12 +183,13 @@ class ProductController extends Controller
                 }
             }
 
-            DB::commit();
+            DB::commit();        // Get updated product with relations
+            $updatedProduct = Product::with(['images', 'variants'])->find($product->id);
 
             return response()->json([
                 'status' => 1,
                 'message' => 'Product updated successfully',
-                'product' => $product->fresh(['images', 'variants'])
+                'product' => $updatedProduct
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
