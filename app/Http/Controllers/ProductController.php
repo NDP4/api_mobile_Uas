@@ -69,12 +69,20 @@ class ProductController extends Controller
 
         // Handle images
         if ($request->hasFile('images')) {
+            $uploadPath = getcwd() . '/uploads/products';
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+
             $order = 0;
             foreach ($request->file('images') as $image) {
-                $path = $image->store('uploads/products');
+                $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                $image->move($uploadPath, $fileName);
+                $imagePath = '/uploads/products/' . $fileName;
+
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_url' => $path,
+                    'image_url' => $imagePath,
                     'image_order' => $order++
                 ]);
             }
@@ -134,8 +142,9 @@ class ProductController extends Controller
 
         // Delete image files
         foreach ($product->images as $image) {
-            if (Storage::exists($image->image_url)) {
-                Storage::delete($image->image_url);
+            $filePath = getcwd() . $image->image_url;
+            if (file_exists($filePath)) {
+                unlink($filePath);
             }
         }
 
