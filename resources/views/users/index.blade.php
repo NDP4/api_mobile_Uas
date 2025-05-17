@@ -206,7 +206,7 @@ createApp({
                 const avatarData = new FormData()
                 avatarData.append('avatar', this.selectedFile)
                 avatarData.append('user_id', this.editingUserId)
-                avatarPromise = axios.post('/api/users/avatar', avatarData, {
+                avatarPromise = axios.post('/uploads/avatars', avatarData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
