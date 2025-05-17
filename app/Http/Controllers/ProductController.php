@@ -7,6 +7,7 @@ use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -53,20 +54,34 @@ class ProductController extends Controller
             $product->weight = $request->weight;
             $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
             $product->has_variants = !empty($request->variants);
-            $product->save();            // Handle variants after product is created
-            if ($request->has('variants')) {
+
+            if (!$product->save()) {
+                throw new \Exception('Failed to save product');
+            }
+
+            // Handle variants after product is created
+            if ($request->variants && $product->id) {
                 $variantsData = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
 
                 if (is_array($variantsData)) {
                     foreach ($variantsData as $variant) {
-                        if (isset($variant['name'])) {
-                            ProductVariant::create([
-                                'product_id' => $product->id,
-                                'variant_name' => $variant['name'],
-                                'price' => floatval($variant['price'] ?? $product->price),
-                                'stock' => intval($variant['stock'] ?? 0),
-                                'discount' => floatval($variant['discount'] ?? 0)
-                            ]);
+                        if (!empty($variant['name'])) {
+                            try {
+                                $variantModel = new ProductVariant([
+                                    'product_id' => $product->id,
+                                    'variant_name' => $variant['name'],
+                                    'price' => floatval($variant['price'] ?? $product->price),
+                                    'stock' => intval($variant['stock'] ?? 0),
+                                    'discount' => floatval($variant['discount'] ?? 0)
+                                ]);
+
+                                if (!$variantModel->save()) {
+                                    throw new \Exception('Failed to save variant');
+                                }
+                            } catch (\Exception $e) {
+                                Log::error('Failed to create variant: ' . $e->getMessage());
+                                throw $e;
+                            }
                         }
                     }
                 }
@@ -80,14 +95,25 @@ class ProductController extends Controller
                 }
 
                 foreach ($request->file('images') as $index => $image) {
-                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                    $image->move($uploadPath, $fileName);
+                    try {
+                        $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                        if (!$image->move($uploadPath, $fileName)) {
+                            throw new \Exception('Failed to move uploaded file');
+                        }
 
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'image_url' => '/storage/uploads/products/' . $fileName,
-                        'image_order' => $index
-                    ]);
+                        $imageModel = new ProductImage([
+                            'product_id' => $product->id,
+                            'image_url' => '/storage/uploads/products/' . $fileName,
+                            'image_order' => $index
+                        ]);
+
+                        if (!$imageModel->save()) {
+                            throw new \Exception('Failed to save image record');
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Failed to upload image: ' . $e->getMessage());
+                        throw $e;
+                    }
                 }
             }
 
@@ -103,6 +129,7 @@ class ProductController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to add product: ' . $e->getMessage());
             return response()->json([
                 'status' => 0,
                 'message' => 'Failed to add product: ' . $e->getMessage()
