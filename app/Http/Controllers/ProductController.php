@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class ProductController extends Controller
 {
@@ -31,16 +32,18 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'title' => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'main_stock' => 'required|integer|min:0',
-            'weight' => 'required|integer|min:1',
-            'variants' => 'nullable|string',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
-        ]);
+        \Log::info('Incoming product creation request', $request->all());
 
         try {
+            $this->validate($request, [
+                'title' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'main_stock' => 'required|integer|min:0',
+                'weight' => 'required|integer|min:1',
+                'variants' => 'nullable|array',
+                'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
+
             DB::beginTransaction();
 
             // Create product first
@@ -59,44 +62,81 @@ class ProductController extends Controller
                 throw new \Exception('Failed to save product');
             }
 
+            \Log::info('Product saved successfully', ['product_id' => $product->id]);
+
             // Handle variants after product is created
             if ($request->has('variants')) {
+                \Log::info('Processing variants', ['variants' => $request->variants]);
                 $variantsData = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
 
-                if (is_array($variantsData)) {
-                    foreach ($variantsData as $variant) {
-                        if (!empty($variant['name'])) {
-                            ProductVariant::create([
-                                'product_id' => $product->id,
-                                'variant_name' => $variant['name'],
-                                'price' => floatval($variant['price'] ?? $product->price),
-                                'stock' => intval($variant['stock'] ?? 0),
-                                'discount' => floatval($variant['discount'] ?? 0)
-                            ]);
+                if (!is_array($variantsData)) {
+                    throw new \Exception('Variants must be an array');
+                }
+
+                foreach ($variantsData as $variant) {
+                    if (empty($variant['name'])) {
+                        continue;
+                    }
+
+                    try {
+                        $variantModel = new ProductVariant([
+                            'product_id' => $product->id,
+                            'variant_name' => $variant['name'],
+                            'price' => floatval($variant['price'] ?? $product->price),
+                            'stock' => intval($variant['stock'] ?? 0),
+                            'discount' => floatval($variant['discount'] ?? 0)
+                        ]);
+
+                        if (!$variantModel->save()) {
+                            throw new \Exception('Failed to save variant');
                         }
+
+                        \Log::info('Variant created successfully', ['variant' => $variantModel->toArray()]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to create variant', [
+                            'error' => $e->getMessage(),
+                            'variant' => $variant
+                        ]);
+                        throw $e;
                     }
                 }
             }
 
             // Handle images
             if ($request->hasFile('images')) {
+                \Log::info('Processing images');
                 $uploadPath = storage_path('app/public/uploads/products');
+
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
+                    \Log::info('Created upload directory', ['path' => $uploadPath]);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
                     try {
                         $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                        $image->move($uploadPath, $fileName);
+                        \Log::info('Processing image', ['fileName' => $fileName]);
 
-                        ProductImage::create([
+                        if (!$image->move($uploadPath, $fileName)) {
+                            throw new \Exception("Failed to move image: {$fileName}");
+                        }
+
+                        $imageModel = new ProductImage([
                             'product_id' => $product->id,
-                            'image_url' => '/storage/uploads/products/' . $fileName,
+                            'image_url' => 'uploads/products/' . $fileName,
                             'image_order' => $index
                         ]);
+
+                        if (!$imageModel->save()) {
+                            throw new \Exception("Failed to save image record: {$fileName}");
+                        }
+
+                        \Log::info('Image saved successfully', ['image' => $imageModel->toArray()]);
                     } catch (\Exception $e) {
-                        Log::error('Failed to upload image: ' . $e->getMessage());
+                        \Log::error('Failed to process image', [
+                            'error' => $e->getMessage(),
+                            'fileName' => $fileName ?? 'unknown'
+                        ]);
                         throw $e;
                     }
                 }
@@ -114,7 +154,11 @@ class ProductController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Failed to add product: ' . $e->getMessage());
+            \Log::error('Failed to add product', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 0,
                 'message' => 'Failed to add product: ' . $e->getMessage()
