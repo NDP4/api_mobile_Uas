@@ -65,23 +65,19 @@ class ProductController extends Controller
 
                 if (is_array($variantsData)) {
                     foreach ($variantsData as $variant) {
-                        if (!empty($variant['name'])) {
-                            try {
-                                $variantModel = new ProductVariant([
-                                    'product_id' => $product->id,
-                                    'variant_name' => $variant['name'],
-                                    'price' => floatval($variant['price'] ?? $product->price),
-                                    'stock' => intval($variant['stock'] ?? 0),
-                                    'discount' => floatval($variant['discount'] ?? 0)
-                                ]);
+                        try {
+                            $variantModel = new ProductVariant([
+                                'product_id' => $product->id,
+                                'variant_name' => $variant['name'] ?? '',
+                                'price' => floatval($variant['price'] ?? $product->price),
+                                'stock' => intval($variant['stock'] ?? 0),
+                                'discount' => floatval($variant['discount'] ?? 0)
+                            ]);
 
-                                if (!$variantModel->save()) {
-                                    throw new \Exception('Failed to save variant');
-                                }
-                            } catch (\Exception $e) {
-                                Log::error('Failed to create variant: ' . $e->getMessage());
-                                throw $e;
-                            }
+                            $variantModel->save();
+                        } catch (\Exception $e) {
+                            Log::error('Failed to create variant: ' . $e->getMessage());
+                            throw $e;
                         }
                     }
                 }
@@ -89,7 +85,7 @@ class ProductController extends Controller
 
             // Handle images
             if ($request->hasFile('images')) {
-                $uploadPath = storage_path('app/public/uploads/products');
+                $uploadPath = public_path('uploads/products');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
@@ -103,7 +99,7 @@ class ProductController extends Controller
 
                         $imageModel = new ProductImage([
                             'product_id' => $product->id,
-                            'image_url' => '/storage/uploads/products/' . $fileName,
+                            'image_url' => 'uploads/products/' . $fileName,
                             'image_order' => $index
                         ]);
 
