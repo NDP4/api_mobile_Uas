@@ -6,6 +6,7 @@ use App\Models\Banner;
 use App\Models\BannerImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class BannerController extends Controller
 {
@@ -33,15 +34,17 @@ class BannerController extends Controller
 
             $images = [];
             if ($request->hasFile('images')) {
-                $uploadPath = 'uploads/banners';
-                if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0777, true);
+                $uploadPath = 'public/uploads/banners';
+
+                // Create directory if it doesn't exist
+                if (!Storage::exists($uploadPath)) {
+                    Storage::makeDirectory($uploadPath);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
                     $fileName = time() . '_' . $index . '_' . $image->getClientOriginalName();
-                    $image->move($uploadPath, $fileName);
-                    $imagePath = $uploadPath . '/' . $fileName;
+                    $path = Storage::putFileAs($uploadPath, $image, $fileName);
+                    $imagePath = storage_path('app/' . $path);
 
                     BannerImage::create([
                         'banner_id' => $banner->id,
