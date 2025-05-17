@@ -301,13 +301,8 @@ createApp({
                 main_stock: parseInt(product.main_stock) || 0,
                 weight: parseFloat(product.weight) || 0,
                 status: product.status || 'available',
-                variants: product.variants ? product.variants.map(v => ({
-                    name: v.variant_name, // Ubah dari v.name ke v.variant_name
-                    price: v.price,
-                    stock: v.stock,
-                    discount: v.discount
-                })) : [],
-                images: product.images || []
+                variants: Array.isArray(product.variants) ? product.variants : [],
+                images: Array.isArray(product.images) ? product.images : []
             };
 
             this.showEditModal = true;
