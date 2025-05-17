@@ -27,6 +27,23 @@ $app->withFacades();
 
 $app->withEloquent();
 
+// Configure views
+$app->configure('view');
+$app->withFacades();
+
+// Register View Component
+$app->singleton('view', function ($app) {
+    return new \Illuminate\View\Factory(
+        new \Illuminate\View\Engines\EngineResolver(),
+        new \Illuminate\View\FileViewFinder(
+            new \Illuminate\Filesystem\Filesystem(),
+            [__DIR__ . '/../resources/views'],
+            ['blade.php', 'php']
+        ),
+        new \Illuminate\Events\Dispatcher($app)
+    );
+});
+
 // Enable Blade templating
 $app->register(Illuminate\View\ViewServiceProvider::class);
 
