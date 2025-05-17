@@ -117,29 +117,42 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         try {
+            // Log semua request data
+            Log::info('Update request received', [
+                'request_data' => $request->all(),
+                'files' => $request->hasFile('images') ? 'Has Images' : 'No Images',
+                'variants' => $request->variants
+            ]);
+
             DB::beginTransaction();
 
             $product = Product::findOrFail($id);
+            Log::info('Found product', ['product' => $product]);
 
-            // Update basic product info
-            $product->title = $request->input('title');
-            $product->description = $request->input('description');
-            $product->category = $request->input('category');
-            $product->price = $request->input('price');
-            $product->discount = $request->input('discount', 0);
-            $product->main_stock = $request->input('main_stock');
-            $product->weight = $request->input('weight');
-            $product->status = $request->input('main_stock') > 0 ? 'available' : 'unavailable';
+            // Update basic info
+            $product->fill($request->only([
+                'title',
+                'description',
+                'category',
+                'price',
+                'discount',
+                'main_stock',
+                'weight'
+            ]));
+            $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
 
-            // Update variants
-            $variantsData = $request->has('variants') ? json_decode($request->input('variants'), true) : [];
+            // Process variants
+            $variantsData = $request->variants ? json_decode($request->variants, true) : [];
+            Log::info('Processing variants', ['variants_data' => $variantsData]);
+
             $product->has_variants = !empty($variantsData);
+            $product->save();
 
-            // Delete existing variants
-            $product->variants()->delete();
-
-            // Create new variants
+            // Handle variants
             if (!empty($variantsData) && is_array($variantsData)) {
+                // Delete existing variants
+                ProductVariant::where('product_id', $product->id)->delete();
+
                 foreach ($variantsData as $variant) {
                     if (!empty($variant['name'])) {
                         ProductVariant::create([
@@ -153,38 +166,31 @@ class ProductController extends Controller
                 }
             }
 
-            $product->save();
-
-            // Handle new images
+            // Handle images
             if ($request->hasFile('images')) {
-                $uploadPath = public_path('uploads/products');
+                Log::info('Processing images', ['image_count' => count($request->file('images'))]);
+
+                $uploadPath = 'uploads/products';
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
 
-                $currentMaxOrder = $product->images()->max('image_order') ?? -1;
-
                 foreach ($request->file('images') as $index => $image) {
-                    try {
-                        $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                        if (!$image->move($uploadPath, $fileName)) {
-                            throw new \Exception('Failed to move uploaded file');
-                        }
+                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                    $image->move($uploadPath, $fileName);
 
-                        ProductImage::create([
-                            'product_id' => $product->id,
-                            'image_url' => 'uploads/products/' . $fileName,
-                            'image_order' => $currentMaxOrder + $index + 1
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Failed to upload image: ' . $e->getMessage());
-                        throw $e;
-                    }
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => 'uploads/products/' . $fileName,
+                        'image_order' => $index
+                    ]);
                 }
             }
 
-            DB::commit();        // Get updated product with relations
+            DB::commit();
+
             $updatedProduct = Product::with(['images', 'variants'])->find($product->id);
+            Log::info('Update successful', ['updated_product' => $updatedProduct]);
 
             return response()->json([
                 'status' => 1,
@@ -193,7 +199,11 @@ class ProductController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Failed to update product: ' . $e->getMessage());
+            Log::error('Update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 0,
                 'message' => 'Failed to update product: ' . $e->getMessage()

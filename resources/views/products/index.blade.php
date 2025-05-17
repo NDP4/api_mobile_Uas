@@ -291,11 +291,22 @@ createApp({
             })
         },
         editProduct(product) {
+            console.log('Editing product:', product);
+
             this.formData = {
-                ...product,
+                id: product.id,
+                title: product.title,
+                description: product.description,
+                category: product.category,
+                price: product.price,
+                discount: product.discount,
+                main_stock: product.main_stock,
+                weight: product.weight,
+                status: product.status,
                 variants: product.variants || []
-            }
-            this.showEditModal = true
+            };
+
+            this.showEditModal = true;
 
             // Reset file upload states
             this.selectedFiles = []
