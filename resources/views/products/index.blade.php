@@ -301,8 +301,13 @@ createApp({
                 main_stock: parseInt(product.main_stock) || 0,
                 weight: parseFloat(product.weight) || 0,
                 status: product.status || 'available',
-                variants: Array.isArray(product.variants) ? product.variants : [],
-                images: Array.isArray(product.images) ? product.images : []
+                variants: product.variants ? product.variants.map(v => ({
+                    name: v.variant_name, // Ubah dari v.name ke v.variant_name
+                    price: v.price,
+                    stock: v.stock,
+                    discount: v.discount
+                })) : [],
+                images: product.images || []
             };
 
             this.showEditModal = true;
@@ -318,6 +323,11 @@ createApp({
         },
         submitEditForm() {
             const formData = new FormData()
+
+            // Tambahkan field deleted_images jika ada
+            if (this.deletedImages.length > 0) {
+                formData.append('deleted_images', JSON.stringify(this.deletedImages))
+            }
 
             // Append basic product data
             formData.append('title', this.formData.title)

@@ -167,23 +167,15 @@ class ProductController extends Controller
             }
 
             // Handle images
-            if ($request->hasFile('images')) {
-                Log::info('Processing images', ['image_count' => count($request->file('images'))]);
-
-                $uploadPath = 'uploads/products';
-                if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0777, true);
-                }
-
-                foreach ($request->file('images') as $index => $image) {
-                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                    $image->move($uploadPath, $fileName);
-
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'image_url' => 'uploads/products/' . $fileName,
-                        'image_order' => $index
-                    ]);
+            if ($request->has('deleted_images')) {
+                $deletedImages = json_decode($request->deleted_images, true);
+                foreach ($deletedImages as $imageId) {
+                    $image = ProductImage::find($imageId);
+                    if ($image) {
+                        // Hapus file
+                        File::delete(public_path($image->image_url));
+                        $image->delete();
+                    }
                 }
             }
 
