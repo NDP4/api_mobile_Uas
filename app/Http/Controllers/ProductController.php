@@ -60,14 +60,16 @@ class ProductController extends Controller
                 $variants = json_decode($request->variants, true);
                 if (is_array($variants)) {
                     foreach ($variants as $variant) {
-                        if (!empty($variant['name'])) {
-                            ProductVariant::create([
+                        if (!empty($variant['name']) && $product->id) {
+                            $variantData = [
                                 'product_id' => $product->id,
                                 'variant_name' => $variant['name'],
                                 'price' => floatval($variant['price'] ?? $product->price),
                                 'stock' => intval($variant['stock'] ?? 0),
                                 'discount' => floatval($variant['discount'] ?? 0)
-                            ]);
+                            ];
+
+                            ProductVariant::create($variantData);
                         }
                     }
                 }
