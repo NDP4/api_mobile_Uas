@@ -73,7 +73,7 @@
                         <form @submit.prevent="showAddModal ? submitAddForm() : submitEditForm()">
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Avatar</label>
-                                <input type="file" @change="handleFileUpload" accept="image/*" class="mt-1">
+                                <input type="file" @change="handleFileUpload" accept="upload/avatars/*" class="mt-1">
                                 <img v-if="previewImage" :src="previewImage" class="mt-2 h-20 w-20 rounded-full">
                             </div>
                             <div class="mb-4">
@@ -206,7 +206,7 @@ createApp({
                 const avatarData = new FormData()
                 avatarData.append('avatar', this.selectedFile)
                 avatarData.append('user_id', this.editingUserId)
-                avatarPromise = axios.post('/uploads/avatars', avatarData, {
+                avatarPromise = axios.post('/api/users/avatar', avatarData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
