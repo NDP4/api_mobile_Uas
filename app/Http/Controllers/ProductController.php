@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -39,7 +40,7 @@ class ProductController extends Controller
         ]);
 
         try {
-            \DB::beginTransaction();
+            DB::beginTransaction();
 
             $product = new Product();
             $product->title = $request->title;
@@ -73,40 +74,49 @@ class ProductController extends Controller
                     }
                 }
 
-            if ($totalVariantStock > $product->main_stock) {
-                return response()->json([
-                    'status' => 0,
-                    'message' => 'Total variant stock cannot exceed main stock'
-                ], 400);
+                if ($totalVariantStock > $product->main_stock) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 0,
+                        'message' => 'Total variant stock cannot exceed main stock'
+                    ], 400);
+                }
             }
+
+            // Handle images
+            if ($request->hasFile('images')) {
+                $uploadPath = getcwd() . '/uploads/products';
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                $order = 0;
+                foreach ($request->file('images') as $image) {
+                    $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                    $image->move($uploadPath, $fileName);
+                    $imagePath = '/uploads/products/' . $fileName;
+
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => $imagePath,
+                        'image_order' => $order++
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return response()->json([
+                'status' => 1,
+                'message' => 'Product added successfully',
+                'product' => $product->load(['images', 'variants'])
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 0,
+                'message' => 'Failed to add product: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Handle images
-        if ($request->hasFile('images')) {
-            $uploadPath = getcwd() . '/uploads/products';
-            if (!file_exists($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
-
-            $order = 0;
-            foreach ($request->file('images') as $image) {
-                $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                $image->move($uploadPath, $fileName);
-                $imagePath = '/uploads/products/' . $fileName;
-
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_url' => $imagePath,
-                    'image_order' => $order++
-                ]);
-            }
-        }
-
-        return response()->json([
-            'status' => 1,
-            'message' => 'Product added successfully',
-            'product' => $product->load(['images', 'variants'])
-        ], 201);
     }
 
     public function update(Request $request, $id)
