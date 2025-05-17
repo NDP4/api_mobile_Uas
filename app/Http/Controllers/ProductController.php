@@ -42,26 +42,27 @@ class ProductController extends Controller
         try {
             DB::beginTransaction();
 
-            $product = new Product();
-            $product->title = $request->title;
-            $product->description = $request->description;
-            $product->category = $request->category;
-            $product->price = $request->price;
-            $product->discount = $request->discount ?? 0;
-            $product->main_stock = $request->main_stock;
-            $product->weight = $request->weight;
-            $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
-            $product->has_variants = !empty($request->variants);
-            $product->save();
+            // Create product
+            $product = Product::create([
+                'title' => $request->title,
+                'description' => $request->description,
+                'category' => $request->category,
+                'price' => $request->price,
+                'discount' => $request->discount ?? 0,
+                'main_stock' => $request->main_stock,
+                'weight' => $request->weight,
+                'status' => $request->main_stock > 0 ? 'available' : 'unavailable',
+                'has_variants' => !empty($request->variants)
+            ]);
 
             // Handle variants
-            if ($product->has_variants) {
-                $variants = json_decode($request->variants, true);
-                $totalVariantStock = 0;
+            $totalVariantStock = 0;
+            if ($request->variants) {
+                $variants = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
 
                 if (is_array($variants)) {
                     foreach ($variants as $variant) {
-                        if (isset($variant['name'])) {
+                        if (!empty($variant['name'])) {
                             $totalVariantStock += intval($variant['stock'] ?? 0);
                             ProductVariant::create([
                                 'product_id' => $product->id,
