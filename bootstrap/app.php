@@ -27,6 +27,9 @@ $app->withFacades();
 
 $app->withEloquent();
 
+// Enable Blade templating
+$app->register(Illuminate\View\ViewServiceProvider::class);
+
 /*
 |--------------------------------------------------------------------------
 | Register Container Bindings
