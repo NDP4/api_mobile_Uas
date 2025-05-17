@@ -324,11 +324,6 @@ createApp({
         submitEditForm() {
             const formData = new FormData()
 
-            // Tambahkan field deleted_images jika ada
-            if (this.deletedImages.length > 0) {
-                formData.append('deleted_images', JSON.stringify(this.deletedImages))
-            }
-
             // Append basic product data
             formData.append('title', this.formData.title)
             formData.append('description', this.formData.description)
