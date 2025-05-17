@@ -58,12 +58,13 @@ class ProductController extends Controller
             // Handle variants
             $totalVariantStock = 0;
             if ($request->variants) {
-                $variants = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
+                $variants = json_decode($request->variants, true);
 
                 if (is_array($variants)) {
                     foreach ($variants as $variant) {
                         if (!empty($variant['name'])) {
                             $totalVariantStock += intval($variant['stock'] ?? 0);
+
                             ProductVariant::create([
                                 'product_id' => $product->id,
                                 'variant_name' => $variant['name'],
@@ -74,6 +75,9 @@ class ProductController extends Controller
                         }
                     }
                 }
+
+                // Update has_variants flag after successfully creating variants
+                $product->update(['has_variants' => true]);
             }
 
             // Handle images
