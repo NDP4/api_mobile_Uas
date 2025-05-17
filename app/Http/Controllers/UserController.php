@@ -101,7 +101,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function updateAvatar(Request $request, $id)
+    public function updateAvatar(Request $request)
     {
         $this->validate($request, [
             'avatar' => 'required|image|mimes:jpeg,png,jpg|max:2048', // max 2MB
