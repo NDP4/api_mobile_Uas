@@ -42,29 +42,25 @@ class ProductController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create product
-            $product = Product::create([
-                'title' => $request->title,
-                'description' => $request->description,
-                'category' => $request->category,
-                'price' => $request->price,
-                'discount' => $request->discount ?? 0,
-                'main_stock' => $request->main_stock,
-                'weight' => $request->weight,
-                'status' => $request->main_stock > 0 ? 'available' : 'unavailable',
-                'has_variants' => !empty($request->variants)
-            ]);
+            // Create product first
+            $product = new Product();
+            $product->title = $request->title;
+            $product->description = $request->description;
+            $product->category = $request->category;
+            $product->price = $request->price;
+            $product->discount = $request->discount ?? 0;
+            $product->main_stock = $request->main_stock;
+            $product->weight = $request->weight;
+            $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
+            $product->has_variants = !empty($request->variants);
+            $product->save();
 
-            // Handle variants
-            $totalVariantStock = 0;
+            // Handle variants after product is created
             if ($request->variants) {
                 $variants = json_decode($request->variants, true);
-
                 if (is_array($variants)) {
                     foreach ($variants as $variant) {
                         if (!empty($variant['name'])) {
-                            $totalVariantStock += intval($variant['stock'] ?? 0);
-
                             ProductVariant::create([
                                 'product_id' => $product->id,
                                 'variant_name' => $variant['name'],
@@ -75,26 +71,22 @@ class ProductController extends Controller
                         }
                     }
                 }
-
-                // Update has_variants flag after successfully creating variants
-                $product->update(['has_variants' => true]);
             }
 
             // Handle images
             if ($request->hasFile('images')) {
                 $uploadPath = 'uploads/products';
                 if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
+                    mkdir($uploadPath, 0777, true);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
                     $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
                     $image->move($uploadPath, $fileName);
-                    $imagePath = $uploadPath . '/' . $fileName;
 
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_url' => $imagePath,
+                        'image_url' => 'uploads/products/' . $fileName,
                         'image_order' => $index
                     ]);
                 }
