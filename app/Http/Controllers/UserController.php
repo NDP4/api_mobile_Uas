@@ -80,7 +80,14 @@ class UserController extends Controller
             'postal_code' => 'nullable|string',
         ]);
 
-        $user->update($request->all());
+        $updateData = [];
+        foreach (['fullname', 'phone', 'address', 'city', 'province', 'postal_code'] as $field) {
+            if ($request->has($field)) {
+                $updateData[$field] = $request->input($field);
+            }
+        }
+
+        $user->update($updateData);
 
         // Refresh user data
         $user = User::find($id);

@@ -37,7 +37,7 @@
                         <tbody class="divide-y divide-gray-200 bg-white">
                             <tr v-for="user in users" :key="user.id">
                                 <td class="whitespace-nowrap px-3 py-4">
-                                    <img v-if="user.avatar" :src="user.avatar" class="h-10 w-10 rounded-full" />
+                                    <img v-if="user.avatar" :src="'https://apilumenmobileuas.ndp.my.id/' + user.avatar" class="h-10 w-10 rounded-full" />
                                     <div v-else class="h-10 w-10 rounded-full bg-gray-200"></div>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ user.fullname }}</td>
@@ -192,10 +192,10 @@ createApp({
             })
         },
         submitEditForm() {
-            const formData = new FormData()
+            const formData = {}
             Object.keys(this.formData).forEach(key => {
                 if (this.formData[key] && key !== 'email' && key !== 'password') {
-                    formData.append(key, this.formData[key])
+                    formData[key] = this.formData[key]
                 }
             })
 
@@ -254,7 +254,10 @@ createApp({
                 email: '',
                 password: '',
                 phone: '',
-                address: ''
+                address: '',
+                city: '',
+                province: '',
+                postal_code: ''
             }
             this.selectedFile = null
             this.previewImage = null
