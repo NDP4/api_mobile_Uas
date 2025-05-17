@@ -74,42 +74,37 @@ class ProductController extends Controller
                         }
                     }
                 }
-
-                if ($totalVariantStock > $product->main_stock) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status' => 0,
-                        'message' => 'Total variant stock cannot exceed main stock'
-                    ], 400);
-                }
             }
 
             // Handle images
             if ($request->hasFile('images')) {
-                $uploadPath = getcwd() . '/uploads/products';
+                $uploadPath = 'uploads/products';
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
-                $order = 0;
-                foreach ($request->file('images') as $image) {
-                    $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                foreach ($request->file('images') as $index => $image) {
+                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
                     $image->move($uploadPath, $fileName);
-                    $imagePath = '/uploads/products/' . $fileName;
+                    $imagePath = $uploadPath . '/' . $fileName;
 
                     ProductImage::create([
                         'product_id' => $product->id,
                         'image_url' => $imagePath,
-                        'image_order' => $order++
+                        'image_order' => $index
                     ]);
                 }
             }
 
             DB::commit();
+
+            // Fetch fresh product data with relations
+            $product = Product::with(['images', 'variants'])->find($product->id);
+
             return response()->json([
                 'status' => 1,
                 'message' => 'Product added successfully',
-                'product' => $product->load(['images', 'variants'])
+                'product' => $product
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();

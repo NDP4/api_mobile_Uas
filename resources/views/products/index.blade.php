@@ -266,13 +266,16 @@ createApp({
                 const validVariants = this.formData.variants.filter(v => v.name && v.name.trim() !== '')
                 if (validVariants.length > 0) {
                     formData.append('variants', JSON.stringify(validVariants))
+                    formData.append('has_variants', '1')
                 }
             }
 
             // Append images
-            this.selectedFiles.forEach(file => {
-                formData.append('images[]', file)
-            })
+            if (this.selectedFiles && this.selectedFiles.length > 0) {
+                this.selectedFiles.forEach((file, index) => {
+                    formData.append(`images[${index}]`, file)
+                })
+            }
 
             axios.post('/api/products', formData, {
                 headers: {
