@@ -321,21 +321,27 @@ createApp({
             const formData = new FormData()
 
             // Append basic product data
-            Object.keys(this.formData).forEach(key => {
-                if (key !== 'variants' && key !== 'images') {
-                    formData.append(key, this.formData[key])
-                }
-            })
+            formData.append('title', this.formData.title)
+            formData.append('description', this.formData.description)
+            formData.append('category', this.formData.category)
+            formData.append('price', this.formData.price)
+            formData.append('discount', this.formData.discount)
+            formData.append('main_stock', this.formData.main_stock)
+            formData.append('weight', this.formData.weight)
+            formData.append('status', this.formData.status)
 
-            // Append variants
-            if (this.formData.variants.length > 0) {
+            // Append variants if they exist
+            if (this.formData.variants && this.formData.variants.length > 0) {
                 formData.append('variants', JSON.stringify(this.formData.variants))
+                formData.append('has_variants', '1')
             }
 
             // Append new images
-            this.selectedFiles.forEach(file => {
-                formData.append('images[]', file)
-            })
+            if (this.selectedFiles && this.selectedFiles.length > 0) {
+                this.selectedFiles.forEach((file, index) => {
+                    formData.append(`images[${index}]`, file)
+                })
+            }
 
             axios.put(`/api/products/${this.formData.id}`, formData, {
                 headers: {
@@ -343,11 +349,13 @@ createApp({
                 }
             })
             .then(response => {
+                alert('Product updated successfully')
                 this.fetchProducts()
                 this.closeModal()
             })
             .catch(error => {
                 console.error('Error updating product:', error)
+                alert('Error updating product: ' + (error.response?.data?.message || error.message))
             })
         },
         deleteProduct(id) {
