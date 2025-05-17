@@ -34,7 +34,7 @@ class BannerController extends Controller
 
             $images = [];
             if ($request->hasFile('images')) {
-                $uploadPath = public_path('uploads/banners');
+                $uploadPath = getcwd() . '/uploads/banners';
 
                 // Create directory if it doesn't exist
                 if (!file_exists($uploadPath)) {
@@ -44,7 +44,7 @@ class BannerController extends Controller
                 foreach ($request->file('images') as $index => $image) {
                     $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
                     $image->move($uploadPath, $fileName);
-                    $imagePath = 'uploads/banners/' . $fileName;
+                    $imagePath = '/uploads/banners/' . $fileName;
 
                     BannerImage::create([
                         'banner_id' => $banner->id,
