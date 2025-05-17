@@ -261,9 +261,12 @@ createApp({
                 }
             })
 
-            // Append variants
-            if (this.formData.variants.length > 0) {
-                formData.append('variants', JSON.stringify(this.formData.variants))
+            // Append variants if there are any
+            if (this.formData.variants && this.formData.variants.length > 0) {
+                const validVariants = this.formData.variants.filter(v => v.name && v.name.trim() !== '')
+                if (validVariants.length > 0) {
+                    formData.append('variants', JSON.stringify(validVariants))
+                }
             }
 
             // Append images

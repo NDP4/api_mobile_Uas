@@ -34,30 +34,44 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'main_stock' => 'required|integer|min:0',
             'weight' => 'required|integer|min:1',
-            'variants' => 'nullable|json',
-            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048'
+            'variants' => 'nullable|string',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
-        $product = new Product($request->all());
-        $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
-        $product->has_variants = !empty($request->variants);
-        $product->save();
+        try {
+            \DB::beginTransaction();
 
-        // Handle variants
-        if ($product->has_variants) {
-            $variants = json_decode($request->variants, true);
-            $totalVariantStock = 0;
+            $product = new Product();
+            $product->title = $request->title;
+            $product->description = $request->description;
+            $product->category = $request->category;
+            $product->price = $request->price;
+            $product->discount = $request->discount ?? 0;
+            $product->main_stock = $request->main_stock;
+            $product->weight = $request->weight;
+            $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
+            $product->has_variants = !empty($request->variants);
+            $product->save();
 
-            foreach ($variants as $variant) {
-                $totalVariantStock += intval($variant['stock'] ?? 0);
-                ProductVariant::create([
-                    'product_id' => $product->id,
-                    'variant_name' => $variant['name'],
-                    'price' => $variant['price'],
-                    'stock' => $variant['stock'] ?? 0,
-                    'discount' => $variant['discount'] ?? 0
-                ]);
-            }
+            // Handle variants
+            if ($product->has_variants) {
+                $variants = json_decode($request->variants, true);
+                $totalVariantStock = 0;
+
+                if (is_array($variants)) {
+                    foreach ($variants as $variant) {
+                        if (isset($variant['name'])) {
+                            $totalVariantStock += intval($variant['stock'] ?? 0);
+                            ProductVariant::create([
+                                'product_id' => $product->id,
+                                'variant_name' => $variant['name'],
+                                'price' => floatval($variant['price'] ?? $product->price),
+                                'stock' => intval($variant['stock'] ?? 0),
+                                'discount' => floatval($variant['discount'] ?? 0)
+                            ]);
+                        }
+                    }
+                }
 
             if ($totalVariantStock > $product->main_stock) {
                 return response()->json([
@@ -69,7 +83,7 @@ class ProductController extends Controller
 
         // Handle images
         if ($request->hasFile('images')) {
-            $uploadPath = public_path('uploads/products');
+            $uploadPath = getcwd() . '/uploads/products';
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
