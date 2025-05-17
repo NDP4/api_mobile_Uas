@@ -116,51 +116,95 @@ class ProductController extends Controller
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        try {
+            DB::beginTransaction();
 
-        $this->validate($request, [
-            'title' => 'nullable|string',
-            'price' => 'nullable|numeric|min:0',
-            'main_stock' => 'nullable|integer|min:0',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
-        ]);
+            $product = Product::findOrFail($id);
 
-        $product->fill($request->all());
+            $this->validate($request, [
+                'title' => 'nullable|string',
+                'price' => 'nullable|numeric|min:0',
+                'main_stock' => 'nullable|integer|min:0',
+                'weight' => 'nullable|integer|min:1',
+                'variants' => 'nullable|string',
+                'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
 
-        if ($request->has('main_stock')) {
-            $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
-        }
+            // Update basic product info
+            $product->fill($request->only([
+                'title',
+                'description',
+                'category',
+                'price',
+                'discount',
+                'main_stock',
+                'weight'
+            ]));
 
-        $product->save();
-
-        // Handle new images
-        if ($request->hasFile('images')) {
-            $uploadPath = public_path('uploads/products');
-            if (!file_exists($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
+            if ($request->has('main_stock')) {
+                $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
             }
 
-            $currentMaxOrder = $product->images()->max('image_order') ?? -1;
-            $order = $currentMaxOrder + 1;
+            // Update variants
+            if ($request->has('variants')) {
+                $variantsData = json_decode($request->variants, true);
+                $product->has_variants = !empty($variantsData);
 
-            foreach ($request->file('images') as $image) {
-                $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                $image->move($uploadPath, $fileName);
-                $imagePath = '/uploads/products/' . $fileName;
+                // Delete existing variants
+                $product->variants()->delete();
 
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_url' => $imagePath,
-                    'image_order' => $order++
-                ]);
+                // Create new variants
+                if (!empty($variantsData) && is_array($variantsData)) {
+                    foreach ($variantsData as $variant) {
+                        if (!empty($variant['name'])) {
+                            ProductVariant::create([
+                                'product_id' => $product->id,
+                                'variant_name' => $variant['name'],
+                                'price' => floatval($variant['price'] ?? $product->price),
+                                'stock' => intval($variant['stock'] ?? 0),
+                                'discount' => floatval($variant['discount'] ?? 0)
+                            ]);
+                        }
+                    }
+                }
             }
-        }
 
-        return response()->json([
-            'status' => 1,
-            'message' => 'Product updated successfully',
-            'product' => $product->load(['images', 'variants'])
-        ]);
+            $product->save();
+
+            // Handle new images
+            if ($request->hasFile('images')) {
+                $uploadPath = public_path('uploads/products');
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                foreach ($request->file('images') as $index => $image) {
+                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                    $image->move($uploadPath, $fileName);
+
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_url' => 'uploads/products/' . $fileName,
+                        'image_order' => $index
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 1,
+                'message' => 'Product updated successfully',
+                'product' => $product->fresh(['images', 'variants'])
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to update product: ' . $e->getMessage());
+            return response()->json([
+                'status' => 0,
+                'message' => 'Failed to update product: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)
