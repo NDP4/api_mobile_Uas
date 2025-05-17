@@ -69,7 +69,7 @@ class ProductController extends Controller
 
         // Handle images
         if ($request->hasFile('images')) {
-            $uploadPath = getcwd() . '/uploads/products';
+            $uploadPath = public_path('uploads/products');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
@@ -116,14 +116,22 @@ class ProductController extends Controller
 
         // Handle new images
         if ($request->hasFile('images')) {
+            $uploadPath = public_path('uploads/products');
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+
             $currentMaxOrder = $product->images()->max('image_order') ?? -1;
             $order = $currentMaxOrder + 1;
 
             foreach ($request->file('images') as $image) {
-                $path = $image->store('uploads/products');
+                $fileName = time() . '_' . $order . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                $image->move($uploadPath, $fileName);
+                $imagePath = '/uploads/products/' . $fileName;
+
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_url' => $path,
+                    'image_url' => $imagePath,
                     'image_order' => $order++
                 ]);
             }
