@@ -76,4 +76,12 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/wishlist', 'WishlistController@store');
     $router->delete('/wishlist', 'WishlistController@destroy');
     $router->get('/wishlist/check', 'WishlistController@check');
+
+    // Admin routes
+    $router->group(['prefix' => 'admin'], function () use ($router) {
+        $router->get('products', 'AdminController@products');
+        $router->get('orders', 'AdminController@orders');
+        $router->get('users', 'AdminController@users');
+        $router->get('banners', 'AdminController@banners');
+    });
 });
