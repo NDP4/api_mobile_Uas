@@ -291,30 +291,40 @@ createApp({
             })
         },
         editProduct(product) {
-            this.formData = {
-                id: product.id,
-                title: product.title || '',
-                description: product.description || '',
-                category: product.category || '',
-                price: parseFloat(product.price) || 0,
-                discount: parseFloat(product.discount) || 0,
-                main_stock: parseInt(product.main_stock) || 0,
-                weight: parseFloat(product.weight) || 0,
-                status: product.status || 'available',
-                variants: Array.isArray(product.variants) ? product.variants : [],
-                images: Array.isArray(product.images) ? product.images : []
-            };
+            // Fetch complete product data first
+            axios.get(`/api/products/${product.id}`)
+                .then(response => {
+                    const fullProduct = response.data.product;
+                    this.formData = {
+                        id: fullProduct.id,
+                        title: fullProduct.title || '',
+                        description: fullProduct.description || '',
+                        category: fullProduct.category || '',
+                        price: parseFloat(fullProduct.price) || 0,
+                        discount: parseFloat(fullProduct.discount) || 0,
+                        main_stock: parseInt(fullProduct.main_stock) || 0,
+                        weight: parseFloat(fullProduct.weight) || 0,
+                        status: fullProduct.status || 'available',
+                        variants: Array.isArray(fullProduct.variants) ? fullProduct.variants : []
+                    };
 
-            this.showEditModal = true;
+                    this.showEditModal = true;
 
-            // Reset file upload states
-            this.selectedFiles = []
-            this.previewImages = []
+                    // Reset file upload states
+                    this.selectedFiles = []
+                    this.previewImages = []
 
-            // Add existing images to preview
-            if (product.images && product.images.length > 0) {
-                this.previewImages = product.images.map(img => 'https://apilumenmobileuas.ndp.my.id/' + img.image_url)
-            }
+                    // Add existing images to preview
+                    if (fullProduct.images && fullProduct.images.length > 0) {
+                        this.previewImages = fullProduct.images.map(img =>
+                            img.image_url.startsWith('http') ? img.image_url : `https://apilumenmobileuas.ndp.my.id/${img.image_url}`
+                        );
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching product details:', error);
+                    alert('Failed to load product details');
+                });
         },
         submitEditForm() {
             const formData = new FormData()
