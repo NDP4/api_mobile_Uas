@@ -53,23 +53,20 @@ class ProductController extends Controller
             $product->weight = $request->weight;
             $product->status = $request->main_stock > 0 ? 'available' : 'unavailable';
             $product->has_variants = !empty($request->variants);
-            $product->save();
+            $product->save();            // Handle variants after product is created
+            if ($request->has('variants')) {
+                $variantsData = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
 
-            // Handle variants after product is created
-            if ($request->variants) {
-                $variants = json_decode($request->variants, true);
-                if (is_array($variants)) {
-                    foreach ($variants as $variant) {
-                        if (!empty($variant['name']) && $product->id) {
-                            $variantData = [
+                if (is_array($variantsData)) {
+                    foreach ($variantsData as $variant) {
+                        if (isset($variant['name'])) {
+                            ProductVariant::create([
                                 'product_id' => $product->id,
                                 'variant_name' => $variant['name'],
                                 'price' => floatval($variant['price'] ?? $product->price),
                                 'stock' => intval($variant['stock'] ?? 0),
                                 'discount' => floatval($variant['discount'] ?? 0)
-                            ];
-
-                            ProductVariant::create($variantData);
+                            ]);
                         }
                     }
                 }
@@ -77,7 +74,7 @@ class ProductController extends Controller
 
             // Handle images
             if ($request->hasFile('images')) {
-                $uploadPath = 'uploads/products';
+                $uploadPath = storage_path('app/public/uploads/products');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
@@ -88,7 +85,7 @@ class ProductController extends Controller
 
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_url' => 'uploads/products/' . $fileName,
+                        'image_url' => '/storage/uploads/products/' . $fileName,
                         'image_order' => $index
                     ]);
                 }
