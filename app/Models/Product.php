@@ -38,9 +38,9 @@ class Product extends Model
         'view_count'
     ];
 
-    public $id;
-    public $has_variants;
-    public $main_stock;
+    // public $id;
+    // public $has_variants;
+    // public $main_stock;
 
     public function variants()
     {

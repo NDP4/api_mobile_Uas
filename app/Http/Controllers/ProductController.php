@@ -60,24 +60,19 @@ class ProductController extends Controller
             }
 
             // Handle variants after product is created
-            if ($request->variants && $product->id) {
+            if ($request->has('variants')) {
                 $variantsData = is_string($request->variants) ? json_decode($request->variants, true) : $request->variants;
 
                 if (is_array($variantsData)) {
                     foreach ($variantsData as $variant) {
-                        try {
-                            $variantModel = new ProductVariant([
+                        if (!empty($variant['name'])) {
+                            ProductVariant::create([
                                 'product_id' => $product->id,
-                                'variant_name' => $variant['name'] ?? '',
+                                'variant_name' => $variant['name'],
                                 'price' => floatval($variant['price'] ?? $product->price),
                                 'stock' => intval($variant['stock'] ?? 0),
                                 'discount' => floatval($variant['discount'] ?? 0)
                             ]);
-
-                            $variantModel->save();
-                        } catch (\Exception $e) {
-                            Log::error('Failed to create variant: ' . $e->getMessage());
-                            throw $e;
                         }
                     }
                 }
@@ -85,7 +80,7 @@ class ProductController extends Controller
 
             // Handle images
             if ($request->hasFile('images')) {
-                $uploadPath = public_path('uploads/products');
+                $uploadPath = storage_path('app/public/uploads/products');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
@@ -93,19 +88,13 @@ class ProductController extends Controller
                 foreach ($request->file('images') as $index => $image) {
                     try {
                         $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                        if (!$image->move($uploadPath, $fileName)) {
-                            throw new \Exception('Failed to move uploaded file');
-                        }
+                        $image->move($uploadPath, $fileName);
 
-                        $imageModel = new ProductImage([
+                        ProductImage::create([
                             'product_id' => $product->id,
-                            'image_url' => 'uploads/products/' . $fileName,
+                            'image_url' => '/storage/uploads/products/' . $fileName,
                             'image_order' => $index
                         ]);
-
-                        if (!$imageModel->save()) {
-                            throw new \Exception('Failed to save image record');
-                        }
                     } catch (\Exception $e) {
                         Log::error('Failed to upload image: ' . $e->getMessage());
                         throw $e;

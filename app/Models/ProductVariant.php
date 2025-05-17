@@ -12,9 +12,11 @@ class ProductVariant extends Model
         'product_id',
         'variant_name',
         'price',
-        'discount',
-        'stock'
+        'stock',
+        'discount'
     ];
+
+    protected $hidden = ['created_at', 'updated_at'];
 
     public function product()
     {
