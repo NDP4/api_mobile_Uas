@@ -291,19 +291,18 @@ createApp({
             })
         },
         editProduct(product) {
-            console.log('Editing product:', product);
-
             this.formData = {
                 id: product.id,
-                title: product.title,
-                description: product.description,
-                category: product.category,
-                price: product.price,
-                discount: product.discount,
-                main_stock: product.main_stock,
-                weight: product.weight,
-                status: product.status,
-                variants: product.variants || []
+                title: product.title || '',
+                description: product.description || '',
+                category: product.category || '',
+                price: parseFloat(product.price) || 0,
+                discount: parseFloat(product.discount) || 0,
+                main_stock: parseInt(product.main_stock) || 0,
+                weight: parseFloat(product.weight) || 0,
+                status: product.status || 'available',
+                variants: Array.isArray(product.variants) ? product.variants : [],
+                images: Array.isArray(product.images) ? product.images : []
             };
 
             this.showEditModal = true;
@@ -313,8 +312,8 @@ createApp({
             this.previewImages = []
 
             // Add existing images to preview
-            if (product.images) {
-                this.previewImages = product.images.map(img => img.image_url)
+            if (product.images && product.images.length > 0) {
+                this.previewImages = product.images.map(img => 'https://apilumenmobileuas.ndp.my.id/' + img.image_url)
             }
         },
         submitEditForm() {
@@ -349,13 +348,17 @@ createApp({
                 }
             })
             .then(response => {
-                alert('Product updated successfully')
                 this.fetchProducts()
                 this.closeModal()
+                alert('Produk berhasil diperbarui')
             })
             .catch(error => {
                 console.error('Error updating product:', error)
-                alert('Error updating product: ' + (error.response?.data?.message || error.message))
+                let errorMsg = 'Gagal memperbarui produk'
+                if (error.response && error.response.data && error.response.data.message) {
+                    errorMsg += ': ' + error.response.data.message
+                }
+                alert(errorMsg)
             })
         },
         deleteProduct(id) {
