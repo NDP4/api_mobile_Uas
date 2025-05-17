@@ -122,10 +122,10 @@ class ProductController extends Controller
             $product = Product::findOrFail($id);
 
             $this->validate($request, [
-                'title' => 'nullable|string',
-                'price' => 'nullable|numeric|min:0',
-                'main_stock' => 'nullable|integer|min:0',
-                'weight' => 'nullable|integer|min:1',
+                'title' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'main_stock' => 'required|integer|min:0',
+                'weight' => 'required|integer|min:1',
                 'variants' => 'nullable|string',
                 'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
             ]);
@@ -146,25 +146,23 @@ class ProductController extends Controller
             }
 
             // Update variants
-            if ($request->has('variants')) {
-                $variantsData = json_decode($request->variants, true);
-                $product->has_variants = !empty($variantsData);
+            $variantsData = $request->has('variants') ? json_decode($request->variants, true) : [];
+            $product->has_variants = !empty($variantsData);
 
-                // Delete existing variants
-                $product->variants()->delete();
+            // Delete existing variants
+            $product->variants()->delete();
 
-                // Create new variants
-                if (!empty($variantsData) && is_array($variantsData)) {
-                    foreach ($variantsData as $variant) {
-                        if (!empty($variant['name'])) {
-                            ProductVariant::create([
-                                'product_id' => $product->id,
-                                'variant_name' => $variant['name'],
-                                'price' => floatval($variant['price'] ?? $product->price),
-                                'stock' => intval($variant['stock'] ?? 0),
-                                'discount' => floatval($variant['discount'] ?? 0)
-                            ]);
-                        }
+            // Create new variants
+            if (!empty($variantsData) && is_array($variantsData)) {
+                foreach ($variantsData as $variant) {
+                    if (!empty($variant['name'])) {
+                        ProductVariant::create([
+                            'product_id' => $product->id,
+                            'variant_name' => $variant['name'],
+                            'price' => floatval($variant['price'] ?? $product->price),
+                            'stock' => intval($variant['stock'] ?? 0),
+                            'discount' => floatval($variant['discount'] ?? 0)
+                        ]);
                     }
                 }
             }
@@ -175,18 +173,27 @@ class ProductController extends Controller
             if ($request->hasFile('images')) {
                 $uploadPath = public_path('uploads/products');
                 if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
+                    mkdir($uploadPath, 0777, true);
                 }
 
-                foreach ($request->file('images') as $index => $image) {
-                    $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
-                    $image->move($uploadPath, $fileName);
+                $currentMaxOrder = $product->images()->max('image_order') ?? -1;
 
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'image_url' => 'uploads/products/' . $fileName,
-                        'image_order' => $index
-                    ]);
+                foreach ($request->file('images') as $index => $image) {
+                    try {
+                        $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+                        if (!$image->move($uploadPath, $fileName)) {
+                            throw new \Exception('Failed to move uploaded file');
+                        }
+
+                        ProductImage::create([
+                            'product_id' => $product->id,
+                            'image_url' => 'uploads/products/' . $fileName,
+                            'image_order' => $currentMaxOrder + $index + 1
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to upload image: ' . $e->getMessage());
+                        throw $e;
+                    }
                 }
             }
 
