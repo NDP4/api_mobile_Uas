@@ -28,14 +28,22 @@ class StorageLinkCommand extends Command
      */
     public function handle()
     {
-        if (file_exists(public_path('storage'))) {
+        $target = storage_path('app/public');
+        $link = public_path('storage');
+
+        if (file_exists($link)) {
             return $this->error('The "public/storage" directory already exists.');
         }
 
-        $this->laravel->make('files')->link(
-            storage_path('app/public'), public_path('storage')
-        );
+        if (!file_exists($target)) {
+            $this->laravel->make('files')->makeDirectory($target, 0755, true);
+        }
 
-        $this->info('The [public/storage] directory has been linked.');
+        try {
+            symlink($target, $link);
+            $this->info('The [public/storage] directory has been linked.');
+        } catch (\Exception $e) {
+            $this->error('Failed to create symbolic link: ' . $e->getMessage());
+        }
     }
 }
