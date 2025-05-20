@@ -26,6 +26,7 @@
                                 <a href="/api/admin/orders" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Orders</a>
                                 <a href="/api/admin/users" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Users</a>
                                 <a href="/api/admin/banners" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Banners</a>
+                                <a href="/api/admin/cupons" class="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Banners</a>
                             </div>
                         </div>
                     </div>

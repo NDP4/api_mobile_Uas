@@ -83,11 +83,19 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->put('/cart/{id}', 'CartController@update');
     $router->delete('/cart/{id}', 'CartController@destroy');
 
+    // Coupon routes
+    $router->get('/coupons', 'CouponController@index');
+    $router->post('/coupons', 'CouponController@store');
+    $router->post('/coupons/validate', 'CouponController@validate_coupon');
+    $router->put('/coupons/{id}', 'CouponController@update');
+    $router->delete('/coupons/{id}', 'CouponController@destroy');
+
     // Admin routes
     $router->group(['prefix' => 'admin'], function () use ($router) {
         $router->get('products', 'AdminController@products');
         $router->get('orders', 'AdminController@orders');
         $router->get('users', 'AdminController@users');
         $router->get('banners', 'AdminController@banners');
+        $router->get('coupons', 'AdminController@coupons');
     });
 });
