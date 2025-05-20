@@ -10,17 +10,12 @@ use Illuminate\Support\Facades\DB;
 
 class CartController extends Controller
 {
-    public function index(Request $request)
+    public function index($user_id)
     {
         try {
-            // Validate user ID
-            $this->validate($request, [
-                'user_id' => 'required|exists:users_elsid,id'
-            ]);
-
-            // Get cart items only for the authenticated user
+            // Get cart items only for the specified user
             $carts = Cart::with(['product.images', 'variant'])
-                ->where('user_id', $request->user_id)
+                ->where('user_id', $user_id)
                 ->get()
                 ->map(function ($cart) {
                     $price = $cart->variant_id ?
