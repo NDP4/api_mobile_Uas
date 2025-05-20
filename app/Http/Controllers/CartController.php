@@ -16,12 +16,12 @@ class CartController extends Controller
             ->where('user_id', $request->user_id)
             ->get()
             ->map(function ($cart) {
-                $price = $cart->variant_id
-                    ? $cart->variant->price * (1 - $cart->variant->discount / 100)
-                    : $cart->product->price * (1 - $cart->product->discount / 100);
+                $price = $cart->variant_id ?
+                    $cart->variant->price * (1 - $cart->variant->discount / 100) :
+                    $cart->product->price * (1 - $cart->product->discount / 100);
 
-                $cart->subtotal = $price * $cart->quantity;
-                return $cart;
+                $subtotal = $price * $cart->quantity;
+                return array_merge($cart->toArray(), ['subtotal' => $subtotal]);
             });
 
         $total = $carts->sum('subtotal');
@@ -35,69 +35,75 @@ class CartController extends Controller
 
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'user_id' => 'required|exists:users_elsid,id',
-            'product_id' => 'required|exists:products_elsid,id',
-            'variant_id' => 'nullable|exists:product_variants,id',
-            'quantity' => 'required|integer|min:1'
-        ]);
-
         try {
             DB::beginTransaction();
 
-            // Check if product exists and has enough stock
+            $this->validate($request, [
+                'user_id' => 'required|exists:users_elsid,id',
+                'product_id' => 'required|exists:products_elsid,id',
+                'variant_id' => 'nullable|exists:product_variants_elsid,id',
+                'quantity' => 'required|integer|min:1'
+            ]);
+
             $product = Product::findOrFail($request->product_id);
 
-            if ($request->variant_id) {
-                $variant = ProductVariant::where('id', $request->variant_id)
-                    ->where('product_id', $request->product_id)
-                    ->firstOrFail();
+            // Check if product has variants but no variant selected
+            if ($product->has_variants && !$request->variant_id) {
+                throw new \Exception('Please select a product variant');
+            }
 
+            // Check stock
+            if ($request->variant_id) {
+                $variant = ProductVariant::findOrFail($request->variant_id);
                 if ($variant->stock < $request->quantity) {
                     throw new \Exception('Insufficient variant stock');
+                }
+                if ($variant->stock == 0) {
+                    throw new \Exception('Variant is out of stock');
                 }
             } else {
                 if ($product->main_stock < $request->quantity) {
                     throw new \Exception('Insufficient product stock');
                 }
+                if ($product->main_stock == 0) {
+                    throw new \Exception('Product is out of stock');
+                }
             }
 
-            // Check if item already exists in cart
+            // Check if item already in cart
             $existingCart = Cart::where('user_id', $request->user_id)
                 ->where('product_id', $request->product_id)
                 ->where('variant_id', $request->variant_id)
                 ->first();
 
             if ($existingCart) {
-                // Update quantity if item exists
-                $newQuantity = $existingCart->quantity + $request->quantity;
+                $existingCart->quantity += $request->quantity;
 
-                // Validate new quantity against stock
+                // Recheck stock with updated quantity
                 if ($request->variant_id) {
-                    if ($variant->stock < $newQuantity) {
-                        throw new \Exception('Cannot add more items: exceeds available variant stock');
+                    if ($variant->stock < $existingCart->quantity) {
+                        throw new \Exception('Cannot add more items. Stock limit reached.');
                     }
                 } else {
-                    if ($product->main_stock < $newQuantity) {
-                        throw new \Exception('Cannot add more items: exceeds available product stock');
+                    if ($product->main_stock < $existingCart->quantity) {
+                        throw new \Exception('Cannot add more items. Stock limit reached.');
                     }
                 }
 
-                $existingCart->quantity = $newQuantity;
                 $existingCart->save();
                 $cart = $existingCart;
             } else {
-                // Create new cart item
                 $cart = Cart::create($request->all());
             }
 
             DB::commit();
 
+            $cart->load(['product.images', 'variant']);
             return response()->json([
                 'status' => 1,
                 'message' => 'Item added to cart successfully',
-                'cart' => $cart->load(['product.images', 'variant'])
-            ]);
+                'cart_item' => $cart
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -109,28 +115,30 @@ class CartController extends Controller
 
     public function update(Request $request, $id)
     {
-        $this->validate($request, [
-            'quantity' => 'required|integer|min:1'
-        ]);
-
         try {
             DB::beginTransaction();
 
+            $this->validate($request, [
+                'quantity' => 'required|integer|min:1'
+            ]);
+
             $cart = Cart::findOrFail($id);
 
-            // Verify user owns this cart item
+            // Verify ownership
             if ($cart->user_id != $request->user_id) {
                 throw new \Exception('Unauthorized access to cart item');
             }
 
-            // Check stock availability
+            // Check stock
             if ($cart->variant_id) {
-                if ($cart->variant->stock < $request->quantity) {
-                    throw new \Exception('Requested quantity exceeds available variant stock');
+                $variant = ProductVariant::findOrFail($cart->variant_id);
+                if ($variant->stock < $request->quantity) {
+                    throw new \Exception('Insufficient variant stock');
                 }
             } else {
-                if ($cart->product->main_stock < $request->quantity) {
-                    throw new \Exception('Requested quantity exceeds available product stock');
+                $product = Product::findOrFail($cart->product_id);
+                if ($product->main_stock < $request->quantity) {
+                    throw new \Exception('Insufficient product stock');
                 }
             }
 
@@ -139,10 +147,11 @@ class CartController extends Controller
 
             DB::commit();
 
+            $cart->load(['product.images', 'variant']);
             return response()->json([
                 'status' => 1,
-                'message' => 'Cart updated successfully',
-                'cart' => $cart->load(['product.images', 'variant'])
+                'message' => 'Cart item updated successfully',
+                'cart_item' => $cart
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -153,16 +162,10 @@ class CartController extends Controller
         }
     }
 
-    public function destroy($id, Request $request)
+    public function destroy($id)
     {
         try {
             $cart = Cart::findOrFail($id);
-
-            // Verify user owns this cart item
-            if ($cart->user_id != $request->user_id) {
-                throw new \Exception('Unauthorized access to cart item');
-            }
-
             $cart->delete();
 
             return response()->json([
