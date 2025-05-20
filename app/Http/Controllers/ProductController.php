@@ -43,6 +43,15 @@ class ProductController extends Controller
                 'weight' => 'required|integer|min:1'
             ]);
 
+            // Check variants stock total
+            $variantsData = json_decode($request->variants, true);
+            if (!empty($variantsData)) {
+                $totalVariantStock = array_sum(array_column($variantsData, 'stock'));
+                if ($totalVariantStock !== (int)$request->main_stock) {
+                    throw new \Exception('Total variant stock must equal main stock');
+                }
+            }
+
             // Create product
             $product = new Product();
             $product->title = $request->title;

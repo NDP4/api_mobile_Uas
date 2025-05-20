@@ -60,23 +60,43 @@ class OrderController extends Controller
             $validated_items = [];
 
             foreach ($items as $item) {
-                $product = Product::findOrFail($item['product_id']);
+                $product = Product::with('variants')->findOrFail($item['product_id']);
                 $quantity = $item['quantity'];
                 $variant = null;
 
-                if (isset($item['variant_id'])) {
-                    $variant = ProductVariant::where('id', $item['variant_id'])
-                        ->where('product_id', $product->id)
-                        ->firstOrFail();
+                // Validate if product has variants but no variant_id is provided
+                if ($product->has_variants && !isset($item['variant_id'])) {
+                    throw new \Exception('Please select a variant for this product');
+                }
 
+                if (isset($item['variant_id'])) {
+                    $variant = $product->variants->where('id', $item['variant_id'])->first();
+
+                    if (!$variant) {
+                        throw new \Exception('Invalid variant selected');
+                    }
+
+                    // Check if variant has enough stock
                     if ($variant->stock < $quantity) {
                         throw new \Exception('Insufficient stock for variant');
+                    }
+                    if ($variant->stock == 0) {
+                        throw new \Exception('Selected variant is out of stock');
+                    }
+
+                    // Validate total variant stock against main stock
+                    $totalVariantStock = $product->variants->sum('stock');
+                    if ($totalVariantStock !== $product->main_stock) {
+                        throw new \Exception('Product variant stock mismatch with main stock');
                     }
 
                     $price = $variant->price * (1 - ($variant->discount / 100));
                 } else {
                     if ($product->main_stock < $quantity) {
                         throw new \Exception('Insufficient stock for product');
+                    }
+                    if ($product->main_stock == 0) {
+                        throw new \Exception('Product is out of stock');
                     }
 
                     $price = $product->price * (1 - ($product->discount / 100));
@@ -119,13 +139,17 @@ class OrderController extends Controller
                 ]);
 
                 if ($item['variant_id']) {
+                    // Update both variant stock and main stock
                     ProductVariant::where('id', $item['variant_id'])
                         ->decrement('stock', $item['quantity']);
+                    Product::where('id', $item['product_id'])
+                        ->decrement('main_stock', $item['quantity']);
                 } else {
                     Product::where('id', $item['product_id'])
                         ->decrement('main_stock', $item['quantity']);
                 }
 
+                // Update purchase count
                 Product::where('id', $item['product_id'])
                     ->increment('purchase_count', $item['quantity']);
             }
