@@ -22,10 +22,10 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Code</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Value</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Max Uses</th>
-                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Used</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Discount Type</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Usage Limit</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Used Count</th>
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                                 <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Actions</th>
                             </tr>
@@ -33,16 +33,16 @@
                         <tbody class="divide-y divide-gray-200 bg-white">
                             <tr v-for="coupon in coupons" :key="coupon.id">
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.code }}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.type }}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.value }}@{{ coupon.type === 'percentage' ? '%' : '' }}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.max_uses }}</td>
-                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.times_used }}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.discount_type }}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.discount_amount }}@{{ coupon.discount_type === 'percentage' ? '%' : '' }}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.usage_limit || 'Unlimited' }}</td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">@{{ coupon.used_count }}</td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                                     <span :class="[
                                         'px-2 inline-flex text-xs leading-5 font-semibold rounded-full',
-                                        coupon.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        coupon.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                     ]">
-                                        @{{ coupon.status }}
+                                        @{{ coupon.is_active ? 'Active' : 'Inactive' }}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -69,25 +69,41 @@
                             <input type="text" v-model="formData.code" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Type</label>
-                            <select v-model="formData.type" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <label class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea v-model="formData.description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Discount Type</label>
+                            <select v-model="formData.discount_type" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                 <option value="fixed">Fixed Amount</option>
                                 <option value="percentage">Percentage</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Value</label>
-                            <input type="number" v-model="formData.value" required min="0" :max="formData.type === 'percentage' ? 100 : null" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <label class="block text-sm font-medium text-gray-700">Discount Amount</label>
+                            <input type="number" v-model="formData.discount_amount" required min="0" :max="formData.discount_type === 'percentage' ? 100 : null" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Maximum Uses</label>
-                            <input type="number" v-model="formData.max_uses" required min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <label class="block text-sm font-medium text-gray-700">Minimum Purchase Amount</label>
+                            <input type="number" v-model="formData.min_purchase" required min="0" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Usage Limit</label>
+                            <input type="number" v-model="formData.usage_limit" min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Valid From</label>
+                            <input type="date" v-model="formData.valid_from" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Valid Until</label>
+                            <input type="date" v-model="formData.valid_until" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Status</label>
-                            <select v-model="formData.status" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
+                            <select v-model="formData.is_active" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option :value="true">Active</option>
+                                <option :value="false">Inactive</option>
                             </select>
                         </div>
                     </div>
@@ -114,13 +130,16 @@ createApp({
         return {
             coupons: [],
             showAddModal: false,
-            showEditModal: false,
-            formData: {
+            showEditModal: false,                formData: {
                 code: '',
-                type: 'fixed',
-                value: 0,
-                max_uses: 1,
-                status: 'active'
+                description: '',
+                discount_type: 'fixed',
+                discount_amount: 0,
+                min_purchase: 0,
+                usage_limit: 1,
+                valid_from: new Date().toISOString().split('T')[0],
+                valid_until: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+                is_active: true
             }
         }
     },
