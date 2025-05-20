@@ -12,25 +12,38 @@ class CartController extends Controller
 {
     public function index(Request $request)
     {
-        $carts = Cart::with(['product.images', 'variant'])
-            ->where('user_id', $request->user_id)
-            ->get()
-            ->map(function ($cart) {
-                $price = $cart->variant_id ?
-                    $cart->variant->price * (1 - $cart->variant->discount / 100) :
-                    $cart->product->price * (1 - $cart->product->discount / 100);
+        try {
+            // Validate user ID
+            $this->validate($request, [
+                'user_id' => 'required|exists:users_elsid,id'
+            ]);
 
-                $subtotal = $price * $cart->quantity;
-                return array_merge($cart->toArray(), ['subtotal' => $subtotal]);
-            });
+            // Get cart items only for the authenticated user
+            $carts = Cart::with(['product.images', 'variant'])
+                ->where('user_id', $request->user_id)
+                ->get()
+                ->map(function ($cart) {
+                    $price = $cart->variant_id ?
+                        $cart->variant->price * (1 - $cart->variant->discount / 100) :
+                        $cart->product->price * (1 - $cart->product->discount / 100);
 
-        $total = $carts->sum('subtotal');
+                    $subtotal = $price * $cart->quantity;
+                    return array_merge($cart->toArray(), ['subtotal' => $subtotal]);
+                });
 
-        return response()->json([
-            'status' => 1,
-            'cart_items' => $carts,
-            'total' => $total
-        ]);
+            $total = $carts->sum('subtotal');
+
+            return response()->json([
+                'status' => 1,
+                'cart_items' => $carts,
+                'total' => $total
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => $e->getMessage()
+            ], 400);
+        }
     }
 
     public function store(Request $request)

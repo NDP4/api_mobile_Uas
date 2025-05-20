@@ -78,7 +78,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('/wishlist/check', 'WishlistController@check');
 
     // Cart routes
-    $router->get('/cart', 'CartController@index');
+    $router->get('/cart/{user_id}', 'CartController@index');
     $router->post('/cart', 'CartController@store');
     $router->put('/cart/{id}', 'CartController@update');
     $router->delete('/cart/{id}', 'CartController@destroy');
