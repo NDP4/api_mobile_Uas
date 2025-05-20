@@ -3,62 +3,77 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Client;
 
 class RajaOngkirController extends Controller
 {
     protected $apiKey;
     protected $baseUrl;
+    protected $client;
 
     public function __construct()
     {
         $this->apiKey = env('RAJAONGKIR_KEY');
         $this->baseUrl = env('RAJAONGKIR_URL');
+        $this->client = new Client();
     }
 
     public function getProvinces()
     {
-        $response = Http::withHeaders([
-            'key' => $this->apiKey
-        ])->get($this->baseUrl . 'province');
+        try {
+            $response = $this->client->request('GET', $this->baseUrl . 'province', [
+                'headers' => ['key' => $this->apiKey]
+            ]);
 
-        return response()->json($response->json());
+            return response()->json(json_decode($response->getBody()->getContents(), true));
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function getCities(Request $request)
     {
-        $provinceId = $request->query('province');
-        $url = $this->baseUrl . 'city';
+        try {
+            $provinceId = $request->query('province');
+            $url = $this->baseUrl . 'city';
+            if ($provinceId) {
+                $url .= "?province={$provinceId}";
+            }
 
-        if ($provinceId) {
-            $url .= "?province={$provinceId}";
+            $response = $this->client->request('GET', $url, [
+                'headers' => ['key' => $this->apiKey]
+            ]);
+
+            return response()->json(json_decode($response->getBody()->getContents(), true));
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        $response = Http::withHeaders([
-            'key' => $this->apiKey
-        ])->get($url);
-
-        return response()->json($response->json());
     }
 
     public function calculateShipping(Request $request)
     {
-        $this->validate($request, [
-            'origin' => 'required',
-            'destination' => 'required',
-            'weight' => 'required|integer|min:1',
-            'courier' => 'required|in:jne,tiki,pos'
-        ]);
+        try {
+            $this->validate($request, [
+                'origin' => 'required',
+                'destination' => 'required',
+                'weight' => 'required|integer|min:1',
+                'courier' => 'required|in:jne,tiki,pos'
+            ]);
 
-        $response = Http::withHeaders([
-            'key' => $this->apiKey
-        ])->post($this->baseUrl . 'cost', [
-            'origin' => $request->origin,
-            'destination' => $request->destination,
-            'weight' => $request->weight,
-            'courier' => $request->courier
-        ]);
+            $response = $this->client->request('POST', $this->baseUrl . 'cost', [
+                'headers' => ['key' => $this->apiKey],
+                'form_params' => [
+                    'origin' => $request->origin,
+                    'destination' => $request->destination,
+                    'weight' => $request->weight,
+                    'courier' => $request->courier
+                ]
+            ]);
 
-        return response()->json($response->json());
+            return response()->json(json_decode($response->getBody()->getContents(), true));
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
+}
 }
