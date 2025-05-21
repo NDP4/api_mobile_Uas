@@ -187,4 +187,21 @@ class CartController extends Controller
             ], 400);
         }
     }
+
+    public function clearCart($user_id)
+    {
+        try {
+            Cart::where('user_id', $user_id)->delete();
+
+            return response()->json([
+                'status' => 1,
+                'message' => 'Cart cleared successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
 }

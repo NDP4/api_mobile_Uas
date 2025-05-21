@@ -82,6 +82,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/cart', 'CartController@store');
     $router->put('/cart/{id}', 'CartController@update');
     $router->delete('/cart/{id}', 'CartController@destroy');
+    $router->delete('/cart/clear/{user_id}', 'CartController@clearCart');
 
     // Coupon routes
     $router->get('/coupons', 'CouponController@index');
