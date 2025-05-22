@@ -240,8 +240,16 @@ class OrderController extends Controller
         ]);
     }
 
-    public function getPurchaseHistory($userId)
+    public function getPurchaseHistory(Request $request, $userId)
     {
+        // Check if user is authorized to view these orders
+        if ($request->user()->id != $userId) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Unauthorized to view these orders'
+            ], 403);
+        }
+
         $orders = Order::with(['items.product', 'items.variant'])
             ->where('user_id', $userId)
             ->where('status', 'delivered')
