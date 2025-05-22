@@ -38,6 +38,16 @@ class PaymentController extends Controller
                 ];
             }
 
+            // Add shipping cost as a separate item
+            if ($order->shipping_cost > 0) {
+                $items[] = [
+                    'id' => 'SHIPPING',
+                    'price' => $order->shipping_cost,
+                    'quantity' => 1,
+                    'name' => 'Shipping Cost (' . $order->courier . ' - ' . $order->courier_service . ')'
+                ];
+            }
+
             $transaction_details = [
                 'order_id' => 'ORDER-' . $order->id . '-' . time(),
                 'gross_amount' => $order->total_amount
