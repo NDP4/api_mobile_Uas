@@ -57,7 +57,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Payment routes
     $router->post('/payments/create', 'PaymentController@createPayment');
-    $router->post('/payments/notification', ['uses' => 'PaymentController@handleNotification', 'as' => 'payment.notification']);
+    $router->addRoute(['GET', 'POST'], '/payments/notification', ['uses' => 'PaymentController@handleNotification', 'as' => 'payment.notification']);
     $router->get('/payments/status/{orderId}', 'PaymentController@checkStatus');
 
     // Shipping routes
