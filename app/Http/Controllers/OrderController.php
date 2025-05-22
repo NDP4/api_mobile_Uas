@@ -242,30 +242,36 @@ class OrderController extends Controller
 
     public function getPurchaseHistory(Request $request, $userId)
     {
-        $orders = Order::with(['items.product', 'items.variant'])
-            ->where('user_id', $userId)
-            ->where('status', 'delivered')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($order) {
-                $order->items->map(function ($item) {
-                    $item->can_reorder = true;
-                    if ($item->variant_id) {
-                        $variant = ProductVariant::find($item->variant_id);
-                        $item->can_reorder = $variant && $variant->stock > 0;
-                    } else {
-                        $product = Product::find($item->product_id);
-                        $item->can_reorder = $product && $product->main_stock > 0;
-                    }
-                    return $item;
+        try {
+            $orders = Order::with(['items.product', 'items.variant'])
+                ->where('user_id', $userId)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($order) {
+                    $order->items->map(function ($item) {
+                        $item->can_reorder = true;
+                        if ($item->variant_id) {
+                            $variant = ProductVariant::find($item->variant_id);
+                            $item->can_reorder = $variant && $variant->stock > 0;
+                        } else {
+                            $product = Product::find($item->product_id);
+                            $item->can_reorder = $product && $product->main_stock > 0;
+                        }
+                        return $item;
+                    });
+                    return $order;
                 });
-                return $order;
-            });
 
-        return response()->json([
-            'status' => 1,
-            'purchase_history' => $orders
-        ]);
+            return response()->json([
+                'status' => 1,
+                'purchase_history' => $orders
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error retrieving purchase history: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function reorder(Request $request)
