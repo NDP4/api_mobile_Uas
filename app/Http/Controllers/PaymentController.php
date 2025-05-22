@@ -99,18 +99,17 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            // Get notification body
             $notificationBody = json_decode($request->getContent(), true);
 
             // Create notification instance from raw post
             $notification = new Notification();
 
             // Extract notification data
-            $orderId = $notification->order_id;
-            $transactionStatus = $notification->transaction_status;
-            $fraudStatus = $notification->fraud_status;
-            $transactionId = $notification->transaction_id;
-            $paymentType = $notification->payment_type;
+            $orderId = $notificationBody['order_id'];
+            $transactionStatus = $notificationBody['transaction_status'];
+            $fraudStatus = isset($notificationBody['fraud_status']) ? $notificationBody['fraud_status'] : null;
+            $transactionId = $notificationBody['transaction_id'];
+            $paymentType = $notificationBody['payment_type'];
 
             // Extract order ID from format "ORDER-{id}-{timestamp}"
             $realOrderId = explode('-', $orderId)[1];
