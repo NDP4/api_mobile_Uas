@@ -100,28 +100,70 @@ class PaymentController extends Controller
         try {
             $notification = new Notification();
 
-            $transaction = $notification->transaction_status;
-            $fraud = $notification->fraud_status;
-            $orderId = str_replace('ORDER-', '', explode('-', $notification->order_id)[1]);
+            $order_id = str_replace('ORDER-', '', explode('-', $notification->order_id)[1]);
+            $transaction_status = $notification->transaction_status;
+            $transaction_id = $notification->transaction_id;
+            $fraud_status = $notification->fraud_status;
+            $payment_type = $notification->payment_type;
 
-            $paymentStatus = 'unpaid';
+            $order = Order::findOrFail($order_id);
+            $payment_status = 'unpaid';
+            $order_status = 'pending';
 
-            if ($transaction == 'capture') {
-                $paymentStatus = ($fraud == 'challenge') ? 'pending' : 'paid';
-            } else if ($transaction == 'settlement') {
-                $paymentStatus = 'paid';
-            } else if (in_array($transaction, ['cancel', 'deny', 'expire'])) {
-                $paymentStatus = 'expired';
-            } else if ($transaction == 'pending') {
-                $paymentStatus = 'unpaid';
+            if ($transaction_status == 'capture') {
+                if ($payment_type == 'credit_card') {
+                    if ($fraud_status == 'challenge') {
+                        $payment_status = 'pending';
+                        $order_status = 'pending';
+                    } else {
+                        $payment_status = 'paid';
+                        $order_status = 'processing';
+                    }
+                }
+            } else if ($transaction_status == 'settlement') {
+                $payment_status = 'paid';
+                $order_status = 'processing';
+            } else if ($transaction_status == 'pending') {
+                $payment_status = 'pending';
+                $order_status = 'pending';
+            } else if ($transaction_status == 'deny') {
+                $payment_status = 'failed';
+                $order_status = 'cancelled';
+            } else if ($transaction_status == 'expire') {
+                $payment_status = 'expired';
+                $order_status = 'cancelled';
+            } else if ($transaction_status == 'cancel') {
+                $payment_status = 'failed';
+                $order_status = 'cancelled';
             }
 
-            $order = Order::findOrFail($orderId);
-            $order->update(['payment_status' => $paymentStatus]);
+            DB::beginTransaction();
 
-            return response()->json(['status' => 1, 'message' => 'Notification handled']);
+            // Update order payment status
+            $order->update([
+                'payment_status' => $payment_status,
+                'status' => $order_status,
+                'payment_type' => $payment_type,
+                'transaction_id' => $transaction_id
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 1,
+                'message' => 'Payment notification handled successfully',
+                'data' => [
+                    'order_id' => $order_id,
+                    'payment_status' => $payment_status,
+                    'order_status' => $order_status
+                ]
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['status' => 0, 'message' => $e->getMessage()], 500);
+            DB::rollBack();
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error handling payment notification: ' . $e->getMessage()
+            ], 500);
         }
     }
 
