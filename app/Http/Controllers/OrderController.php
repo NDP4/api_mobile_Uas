@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Coupon;
+use App\Models\CouponUsage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -43,7 +45,8 @@ class OrderController extends Controller
             'shipping_postal_code' => 'required|string',
             'shipping_cost' => 'required|numeric|min:0',
             'courier' => 'required|string',
-            'courier_service' => 'required|string'
+            'courier_service' => 'required|string',
+            'coupon_code' => 'nullable|string'
         ]);
 
         $items = json_decode($request->items, true);
@@ -58,6 +61,25 @@ class OrderController extends Controller
             // Calculate total and validate stock
             $total_amount = 0;
             $validated_items = [];
+            $coupon = null;
+            $coupon_discount = 0;
+
+            // Validate coupon if provided
+            if ($request->coupon_code) {
+                $coupon = Coupon::where('code', $request->coupon_code)->first();
+
+                if (!$coupon) {
+                    throw new \Exception('Invalid coupon code');
+                }
+
+                if (!$coupon->isValid()) {
+                    throw new \Exception('Coupon is expired or inactive');
+                }
+
+                if (!$coupon->canBeUsedByUser($request->user_id)) {
+                    throw new \Exception('Coupon usage limit exceeded for this user');
+                }
+            }
 
             foreach ($items as $item) {
                 $product = Product::with('variants')->findOrFail($item['product_id']);
@@ -114,10 +136,21 @@ class OrderController extends Controller
                 ];
             }
 
+            // Calculate coupon discount if applicable
+            if ($coupon) {
+                $coupon_discount = $coupon->calculateDiscount($total_amount);
+                if ($coupon_discount <= 0) {
+                    throw new \Exception('Minimum purchase amount not met for this coupon');
+                }
+            }
+
+            // Calculate final total with shipping and discount
+            $final_total = $total_amount + $request->shipping_cost - $coupon_discount;
+
             // Create order
             $order = Order::create([
                 'user_id' => $request->user_id,
-                'total_amount' => $total_amount + $request->shipping_cost,
+                'total_amount' => $final_total,
                 'shipping_cost' => $request->shipping_cost,
                 'courier' => $request->courier,
                 'courier_service' => $request->courier_service,
@@ -126,6 +159,19 @@ class OrderController extends Controller
                 'shipping_province' => $request->shipping_province,
                 'shipping_postal_code' => $request->shipping_postal_code
             ]);
+
+            // Record coupon usage if applicable
+            if ($coupon && $coupon_discount > 0) {
+                CouponUsage::create([
+                    'coupon_id' => $coupon->id,
+                    'user_id' => $request->user_id,
+                    'order_id' => $order->id,
+                    'discount_amount' => $coupon_discount
+                ]);
+
+                // Increment used count
+                $coupon->increment('used_count');
+            }
 
             // Create order items and update stock
             foreach ($validated_items as $item) {
@@ -159,7 +205,8 @@ class OrderController extends Controller
             return response()->json([
                 'status' => 1,
                 'message' => 'Order created successfully',
-                'order' => $order->load(['items.product', 'items.variant'])
+                'order' => $order->load(['items.product', 'items.variant']),
+                'coupon_discount' => $coupon_discount
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
