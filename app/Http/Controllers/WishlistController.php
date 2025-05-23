@@ -10,7 +10,7 @@ class WishlistController extends Controller
     public function index($userId)
     {
         try {
-            $wishlist = Wishlist::with('product')
+            $wishlist = Wishlist::with(['product.images', 'product.variants'])
                 ->where('user_id', $userId)
                 ->get();
 
