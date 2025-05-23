@@ -7,88 +7,105 @@ use Illuminate\Http\Request;
 
 class WishlistController extends Controller
 {
-    public function index(Request $request)
+    public function index($userId)
     {
-        $this->validate($request, [
-            'user_id' => 'required|exists:users_elsid,id'
-        ]);
+        try {
+            $wishlist = Wishlist::with('product')
+                ->where('user_id', $userId)
+                ->get();
 
-        $wishlists = Wishlist::with(['product.images', 'product.variants'])
-            ->where('user_id', $request->user_id)
-            ->get();
-
-        return response()->json([
-            'status' => 1,
-            'wishlist' => $wishlists
-        ]);
+            return response()->json([
+                'status' => 1,
+                'wishlist' => $wishlist
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error retrieving wishlist: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function store(Request $request)
+    public function store(Request $request, $userId)
     {
         $this->validate($request, [
-            'user_id' => 'required|exists:users_elsid,id',
             'product_id' => 'required|exists:products_elsid,id'
         ]);
 
         try {
-            Wishlist::create([
-                'user_id' => $request->user_id,
+            $exists = Wishlist::where('user_id', $userId)
+                ->where('product_id', $request->product_id)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => 'Product already in wishlist'
+                ], 400);
+            }
+
+            $wishlist = Wishlist::create([
+                'user_id' => $userId,
                 'product_id' => $request->product_id
             ]);
 
             return response()->json([
                 'status' => 1,
-                'message' => 'Product added to wishlist successfully'
+                'message' => 'Product added to wishlist',
+                'data' => $wishlist
             ], 201);
         } catch (\Exception $e) {
-            // If unique constraint fails - product already in wishlist
             return response()->json([
                 'status' => 0,
-                'message' => 'Product already in wishlist'
-            ], 400);
+                'message' => 'Error adding to wishlist: ' . $e->getMessage()
+            ], 500);
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy($userId, $productId)
     {
-        $this->validate($request, [
-            'user_id' => 'required|exists:users_elsid,id',
-            'product_id' => 'required|exists:products_elsid,id'
-        ]);
+        try {
+            $wishlist = Wishlist::where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->first();
 
-        $deleted = Wishlist::where([
-            'user_id' => $request->user_id,
-            'product_id' => $request->product_id
-        ])->delete();
+            if (!$wishlist) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => 'Product not found in wishlist'
+                ], 404);
+            }
 
-        if ($deleted) {
+            $wishlist->delete();
+
             return response()->json([
                 'status' => 1,
-                'message' => 'Product removed from wishlist successfully'
+                'message' => 'Product removed from wishlist'
             ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error removing from wishlist: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'status' => 0,
-            'message' => 'Product not found in wishlist'
-        ], 404);
     }
 
-    public function check(Request $request)
+    public function check($userId, $productId)
     {
-        $this->validate($request, [
-            'user_id' => 'required|exists:users_elsid,id',
-            'product_id' => 'required|exists:products_elsid,id'
-        ]);
+        try {
+            $exists = Wishlist::where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->exists();
 
-        $exists = Wishlist::where([
-            'user_id' => $request->user_id,
-            'product_id' => $request->product_id
-        ])->exists();
-
-        return response()->json([
-            'status' => 1,
-            'in_wishlist' => $exists
-        ]);
+            return response()->json([
+                'status' => 1,
+                'exists' => $exists
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error checking wishlist: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

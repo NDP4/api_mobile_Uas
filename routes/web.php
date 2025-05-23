@@ -72,10 +72,10 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->delete('/banners/{id}', 'BannerController@destroy');
 
     // Wishlist routes
-    $router->get('/wishlist', 'WishlistController@index');
-    $router->post('/wishlist', 'WishlistController@store');
-    $router->delete('/wishlist', 'WishlistController@destroy');
-    $router->get('/wishlist/check', 'WishlistController@check');
+    $router->get('/users/{userId}/wishlist', 'WishlistController@index');
+    $router->post('/users/{userId}/wishlist', 'WishlistController@store');
+    $router->delete('/users/{userId}/wishlist/{productId}', 'WishlistController@destroy');
+    $router->get('/users/{userId}/wishlist/check/{productId}', 'WishlistController@check');
 
     // Cart routes
     $router->get('/cart/{user_id}', 'CartController@index');
