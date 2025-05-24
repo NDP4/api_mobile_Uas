@@ -34,6 +34,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class, 'order_id');
     }
 
+    public function couponUsage()
+    {
+        return $this->hasOne(CouponUsage::class, 'order_id');
+    }
+
     protected $casts = [
         'total_amount' => 'float',
         'shipping_cost' => 'float'
