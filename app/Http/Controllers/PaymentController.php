@@ -157,6 +157,22 @@ class PaymentController extends Controller
                 'transaction_id' => $transactionId
             ]);
 
+            // Create notification for payment status change
+            \App\Models\Notification::create([
+                'user_id' => $order->user_id,
+                'title' => 'Payment Status Updated',
+                'message' => "Payment for order #$order->id is now $paymentStatus",
+                'type' => 'payment_status',
+                'data' => [
+                    'order_id' => $order->id,
+                    'payment_status' => $paymentStatus,
+                    'transaction_id' => $transactionId,
+                    'payment_type' => $paymentType
+                ],
+                'order_id' => $order->id,
+                'is_read' => false
+            ]);
+
             DB::commit();
 
             return response()->json([

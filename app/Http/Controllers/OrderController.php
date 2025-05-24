@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -24,14 +25,49 @@ class OrderController extends Controller
 
     public function show($id)
     {
-        $order = Order::with(['user:id,fullname', 'items.product', 'items.variant'])
-            ->find($id);
+        try {
+            $order = Order::with([
+                'user:id,fullname,email,phone',
+                'items.product.images',
+                'items.variant',
+                'couponUsage.coupon'
+            ])->find($id);
 
-        if (!$order) {
-            return response()->json(['status' => 0, 'message' => 'Order not found'], 404);
+            if (!$order) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => 'Order not found'
+                ], 404);
+            }
+
+            // Check if items can be reordered (stock availability)
+            $orderDetails = [
+                'order' => $order,
+                'can_reorder' => true,
+                'items' => $order->items->map(function ($item) {
+                    $canReorder = true;
+                    if ($item->variant_id) {
+                        $variant = ProductVariant::find($item->variant_id);
+                        $canReorder = $variant && $variant->stock > 0;
+                    } else {
+                        $product = Product::find($item->product_id);
+                        $canReorder = $product && $product->main_stock > 0;
+                    }
+                    $item->can_reorder = $canReorder;
+                    return $item;
+                })
+            ];
+
+            return response()->json([
+                'status' => 1,
+                'data' => $orderDetails
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error retrieving order details: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json(['status' => 1, 'order' => $order]);
     }
 
     public function store(Request $request)
@@ -231,8 +267,26 @@ class OrderController extends Controller
         ]);
 
         $order = Order::findOrFail($id);
+        $oldStatus = $order->status;
         $order->status = $request->status;
         $order->save();
+
+        // Create notification for status change
+        Notification::create([
+            'user_id' => $order->user_id,
+            'title' => 'Order Status Updated',
+            'message' => "Your order #$order->id status has been updated from $oldStatus to {$request->status}",
+            'type' => 'order_status',
+            'data' => [
+                'order_id' => $order->id,
+                'old_status' => $oldStatus,
+                'new_status' => $request->status,
+                'total_amount' => $order->total_amount,
+                'payment_status' => $order->payment_status
+            ],
+            'order_id' => $order->id,
+            'is_read' => false
+        ]);
 
         return response()->json([
             'status' => 1,
@@ -291,7 +345,8 @@ class OrderController extends Controller
                     return [
                         'product_id' => $item->product_id,
                         'variant_id' => $item->variant_id,
-                        'quantity' => 1 // Default to 1 for reorders
+                        'quantity' => $item->quantity,
+                        'price' => $item->price
                     ];
                 })->toArray();
 
@@ -313,8 +368,8 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 0,
-                'message' => 'Failed to reorder: ' . $e->getMessage()
-            ], 400);
+                'message' => 'Error creating reorder: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

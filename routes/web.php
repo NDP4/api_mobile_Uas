@@ -91,6 +91,11 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->put('/coupons/{id}', 'CouponController@update');
     $router->delete('/coupons/{id}', 'CouponController@destroy');
 
+    // Notification routes
+    $router->get('/users/{userId}/notifications', 'NotificationController@index');
+    $router->get('/users/{userId}/notifications/unread', 'NotificationController@getUnread');
+    $router->post('/notifications/mark-read', 'NotificationController@markAsRead');
+
     // Admin routes
     $router->group(['prefix' => 'admin'], function () use ($router) {
         $router->get('products', 'AdminController@products');
