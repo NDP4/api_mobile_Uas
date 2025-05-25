@@ -109,20 +109,26 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            $notificationBody = json_decode($request->getContent(), true);
+            $raw = $request->getContent();
+            $notification = json_decode($raw, true);
 
-            // Create notification instance from raw post
-            $notification = new Notification();
-
-            // Extract notification data
-            $orderId = $notificationBody['order_id'];
-            $transactionStatus = $notificationBody['transaction_status'];
-            $fraudStatus = isset($notificationBody['fraud_status']) ? $notificationBody['fraud_status'] : null;
-            $transactionId = $notificationBody['transaction_id'];
-            $paymentType = $notificationBody['payment_type'];
+            Log::info('Raw Midtrans Notification:', ['data' => $notification]);
 
             // Extract order ID from format "ORDER-{id}-{timestamp}"
+            $orderId = $notification['order_id'];
             $realOrderId = explode('-', $orderId)[1];
+
+            // Get transaction status info
+            $transactionStatus = $notification['transaction_status'];
+            $fraudStatus = $notification['fraud_status'] ?? null;
+            $transactionId = $notification['transaction_id'];
+            $paymentType = $notification['payment_type'];
+
+            Log::info('Processing order:', [
+                'order_id' => $realOrderId,
+                'status' => $transactionStatus,
+                'fraud_status' => $fraudStatus
+            ]);
 
             // Find the order
             $order = Order::findOrFail($realOrderId);
@@ -159,6 +165,12 @@ class PaymentController extends Controller
 
             DB::beginTransaction();
 
+            Log::info('Updating order status:', [
+                'order_id' => $realOrderId,
+                'payment_status' => $paymentStatus,
+                'order_status' => $orderStatus
+            ]);
+
             // Update order status
             $order->update([
                 'payment_status' => $paymentStatus,
@@ -167,7 +179,7 @@ class PaymentController extends Controller
                 'transaction_id' => $transactionId
             ]);
 
-            // Create notification for payment status change
+            // Create notification
             \App\Models\Notification::create([
                 'user_id' => $order->user_id,
                 'title' => 'Payment Status Updated',
@@ -184,6 +196,8 @@ class PaymentController extends Controller
             ]);
 
             DB::commit();
+
+            Log::info('Payment notification processed successfully');
 
             return response()->json([
                 'status' => 1,
