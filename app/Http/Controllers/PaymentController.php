@@ -109,20 +109,21 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            $raw = $request->getContent();
-            $notification = json_decode($raw, true);
+            // Accept notification from Midtrans
+            $midtransNotif = new Notification();
 
-            Log::info('Raw Midtrans Notification:', ['data' => $notification]);
+            Log::info('Raw Midtrans Notification:', ['data' => $midtransNotif]);
 
             // Extract order ID from format "ORDER-{id}-{timestamp}"
-            $orderId = $notification['order_id'];
+            $orderId = $midtransNotif->order_id;
             $realOrderId = explode('-', $orderId)[1];
 
             // Get transaction status info
-            $transactionStatus = $notification['transaction_status'];
-            $fraudStatus = $notification['fraud_status'] ?? null;
-            $transactionId = $notification['transaction_id'];
-            $paymentType = $notification['payment_type'];
+            $transactionStatus = $midtransNotif->transaction_status;
+            $fraudStatus = $midtransNotif->fraud_status;
+            $transactionId = $midtransNotif->transaction_id;
+            $paymentType = $midtransNotif->payment_type;
+            $grossAmount = $midtransNotif->gross_amount;
 
             Log::info('Processing order:', [
                 'order_id' => $realOrderId,
@@ -136,19 +137,14 @@ class PaymentController extends Controller
             $paymentStatus = 'unpaid';
             $orderStatus = 'pending';
 
-            if ($transactionStatus == 'capture') {
-                if ($paymentType == 'credit_card') {
-                    if ($fraudStatus == 'challenge') {
-                        $paymentStatus = 'pending';
-                        $orderStatus = 'pending';
-                    } else {
-                        $paymentStatus = 'paid';
-                        $orderStatus = 'processing';
-                    }
-                }
-            } else if ($transactionStatus == 'settlement') {
+            if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
                 $paymentStatus = 'paid';
                 $orderStatus = 'processing';
+
+                if ($paymentType == 'credit_card' && $fraudStatus == 'challenge') {
+                    $paymentStatus = 'pending';
+                    $orderStatus = 'pending';
+                }
             } else if ($transactionStatus == 'pending') {
                 $paymentStatus = 'pending';
                 $orderStatus = 'pending';
@@ -164,6 +160,12 @@ class PaymentController extends Controller
             }
 
             DB::beginTransaction();
+
+            Log::info('Updating order status:', [
+                'order_id' => $realOrderId,
+                'payment_status' => $paymentStatus,
+                'order_status' => $orderStatus
+            ]);
 
             Log::info('Updating order status:', [
                 'order_id' => $realOrderId,
