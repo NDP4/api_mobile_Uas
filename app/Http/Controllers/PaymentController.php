@@ -27,7 +27,7 @@ class PaymentController extends Controller
         ]);
 
         try {
-            $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
+            $order = Order::with(['user', 'items.product', 'couponUsage.coupon'])->findOrFail($request->order_id);
 
             $items = [];
             foreach ($order->items as $item) {
@@ -46,6 +46,16 @@ class PaymentController extends Controller
                     'price' => $order->shipping_cost,
                     'quantity' => 1,
                     'name' => 'Shipping Cost (' . $order->courier . ' - ' . $order->courier_service . ')'
+                ];
+            }
+
+            // Add coupon discount as a separate item if exists
+            if ($order->couponUsage) {
+                $items[] = [
+                    'id' => 'DISCOUNT',
+                    'price' => -$order->couponUsage->discount_amount,
+                    'quantity' => 1,
+                    'name' => 'Discount (Coupon: ' . $order->couponUsage->coupon->code . ')'
                 ];
             }
 
