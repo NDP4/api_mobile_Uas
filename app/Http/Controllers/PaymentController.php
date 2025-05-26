@@ -109,45 +109,29 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            $payload = json_decode($request->getContent(), true);
-            Log::info('Midtrans Raw Payload:', $payload ?? []);
+            Log::info('Raw notification:', ['content' => $request->getContent()]);
 
-            // Set Midtrans configuration
-            Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
-            Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+            // Create Midtrans notification instance
+            $notification = new Notification();
 
-            // Validate signature key
-            $orderId = $payload['order_id'];
-            $statusCode = $payload['status_code'];
-            $grossAmount = $payload['gross_amount'];
-            $serverKey = Config::$serverKey;
-            $input = $orderId . $statusCode . $grossAmount . $serverKey;
-            $calculatedSignature = openssl_digest($input, 'sha512');
+            // Get notification data
+            $orderId = $notification->order_id;
+            $statusCode = $notification->status_code;
+            $transactionStatus = $notification->transaction_status;
+            $transactionId = $notification->transaction_id;
+            $fraudStatus = $notification->fraud_status;
+            $paymentType = $notification->payment_type;
+            $grossAmount = $notification->gross_amount;
 
-            if ($calculatedSignature !== ($payload['signature_key'] ?? '')) {
-                Log::error('Invalid signature key');
-                return response()->json([
-                    'status' => 0,
-                    'message' => 'Invalid signature key'
-                ], 400);
-            }
-
-            // Extract order ID from format "ORDER-{id}-{timestamp}"
-            $orderId = $payload['order_id'];
-            $realOrderId = explode('-', $orderId)[1];
-
-            // Get transaction status info
-            $transactionStatus = $payload['transaction_status'];
-            $fraudStatus = $payload['fraud_status'] ?? null;
-            $transactionId = $payload['transaction_id'];
-            $paymentType = $payload['payment_type'];
-            $grossAmount = $payload['gross_amount'];
-
-            Log::info('Processing order:', [
-                'order_id' => $realOrderId,
-                'status' => $transactionStatus,
-                'fraud_status' => $fraudStatus
+            Log::info('Notification Data:', [
+                'order_id' => $orderId,
+                'status_code' => $statusCode,
+                'transaction_status' => $transactionStatus,
+                'payment_type' => $paymentType
             ]);
+
+            // Extract real order ID from format "ORDER-{id}-{timestamp}"
+            $realOrderId = explode('-', $orderId)[1];
 
             // Find the order
             $order = Order::findOrFail($realOrderId);
@@ -155,43 +139,32 @@ class PaymentController extends Controller
             $paymentStatus = 'unpaid';
             $orderStatus = 'pending';
 
-            // Check for successful transaction based on Midtrans best practices
-            if (($statusCode == "200") &&
-                ($fraudStatus == "accept" || $fraudStatus == null) &&
-                ($transactionStatus == "settlement" || $transactionStatus == "capture")
-            ) {
-                $paymentStatus = 'paid';
-                $orderStatus = 'processing';
-            } else if ($transactionStatus == "capture" && $fraudStatus == "challenge") {
+            // Handle transaction status based on Midtrans documentation
+            if ($statusCode == "200") {
+                if ($transactionStatus == "capture") {
+                    if ($fraudStatus == "challenge") {
+                        $paymentStatus = 'pending';
+                        $orderStatus = 'pending';
+                    } else if ($fraudStatus == "accept") {
+                        $paymentStatus = 'paid';
+                        $orderStatus = 'processing';
+                    }
+                } else if ($transactionStatus == "settlement") {
+                    $paymentStatus = 'paid';
+                    $orderStatus = 'processing';
+                }
+            } else if ($transactionStatus == "pending") {
                 $paymentStatus = 'pending';
                 $orderStatus = 'pending';
-            } else if ($transactionStatus == 'pending') {
-                $paymentStatus = 'pending';
-                $orderStatus = 'pending';
-            } else if ($transactionStatus == 'deny') {
+            } else if ($transactionStatus == "deny" || $transactionStatus == "cancel") {
                 $paymentStatus = 'failed';
                 $orderStatus = 'cancelled';
-            } else if ($transactionStatus == 'expire') {
+            } else if ($transactionStatus == "expire") {
                 $paymentStatus = 'expired';
-                $orderStatus = 'cancelled';
-            } else if ($transactionStatus == 'cancel') {
-                $paymentStatus = 'failed';
                 $orderStatus = 'cancelled';
             }
 
             DB::beginTransaction();
-
-            Log::info('Updating order status:', [
-                'order_id' => $realOrderId,
-                'payment_status' => $paymentStatus,
-                'order_status' => $orderStatus
-            ]);
-
-            Log::info('Updating order status:', [
-                'order_id' => $realOrderId,
-                'payment_status' => $paymentStatus,
-                'order_status' => $orderStatus
-            ]);
 
             // Update order status
             $order->update([
@@ -201,7 +174,7 @@ class PaymentController extends Controller
                 'transaction_id' => $transactionId
             ]);
 
-            // Create notification
+            // Create notification for user
             \App\Models\Notification::create([
                 'user_id' => $order->user_id,
                 'title' => 'Payment Status Updated',
@@ -219,25 +192,27 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            Log::info('Payment notification processed successfully');
+            Log::info('Successfully processed payment notification', [
+                'order_id' => $realOrderId,
+                'payment_status' => $paymentStatus
+            ]);
 
             return response()->json([
                 'status' => 1,
-                'message' => 'Payment notification handled successfully',
+                'message' => 'OK',
                 'data' => [
                     'order_id' => $realOrderId,
-                    'payment_status' => $paymentStatus,
-                    'order_status' => $orderStatus
+                    'status' => $paymentStatus
                 ]
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Midtrans callback error: ' . $e->getMessage());
-            Log::error('Request body: ' . $request->getContent());
+            Log::error('Payment notification error: ' . $e->getMessage());
+            Log::error('Raw notification: ' . $request->getContent());
 
             return response()->json([
                 'status' => 0,
-                'message' => 'Error handling payment notification: ' . $e->getMessage()
+                'message' => 'Error processing payment notification'
             ], 500);
         }
     }
