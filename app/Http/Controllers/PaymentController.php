@@ -112,8 +112,25 @@ class PaymentController extends Controller
             $payload = json_decode($request->getContent(), true);
             Log::info('Midtrans Raw Payload:', $payload ?? []);
 
+            // Set Midtrans configuration
             Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
             Config::$serverKey = env('MIDTRANS_SERVER_KEY');
+
+            // Validate signature key
+            $orderId = $payload['order_id'];
+            $statusCode = $payload['status_code'];
+            $grossAmount = $payload['gross_amount'];
+            $serverKey = Config::$serverKey;
+            $input = $orderId . $statusCode . $grossAmount . $serverKey;
+            $calculatedSignature = openssl_digest($input, 'sha512');
+
+            if ($calculatedSignature !== ($payload['signature_key'] ?? '')) {
+                Log::error('Invalid signature key');
+                return response()->json([
+                    'status' => 0,
+                    'message' => 'Invalid signature key'
+                ], 400);
+            }
 
             // Extract order ID from format "ORDER-{id}-{timestamp}"
             $orderId = $payload['order_id'];
@@ -138,14 +155,16 @@ class PaymentController extends Controller
             $paymentStatus = 'unpaid';
             $orderStatus = 'pending';
 
-            if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
+            // Check for successful transaction based on Midtrans best practices
+            if (($statusCode == "200") &&
+                ($fraudStatus == "accept" || $fraudStatus == null) &&
+                ($transactionStatus == "settlement" || $transactionStatus == "capture")
+            ) {
                 $paymentStatus = 'paid';
                 $orderStatus = 'processing';
-
-                if ($paymentType == 'credit_card' && $fraudStatus == 'challenge') {
-                    $paymentStatus = 'pending';
-                    $orderStatus = 'pending';
-                }
+            } else if ($transactionStatus == "capture" && $fraudStatus == "challenge") {
+                $paymentStatus = 'pending';
+                $orderStatus = 'pending';
             } else if ($transactionStatus == 'pending') {
                 $paymentStatus = 'pending';
                 $orderStatus = 'pending';
