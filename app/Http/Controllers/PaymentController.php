@@ -109,21 +109,22 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            // Accept notification from Midtrans
-            $midtransNotif = new Notification();
+            $payload = json_decode($request->getContent(), true);
+            Log::info('Midtrans Raw Payload:', $payload ?? []);
 
-            Log::info('Raw Midtrans Notification:', ['data' => $midtransNotif]);
+            Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+            Config::$serverKey = env('MIDTRANS_SERVER_KEY');
 
             // Extract order ID from format "ORDER-{id}-{timestamp}"
-            $orderId = $midtransNotif->order_id;
+            $orderId = $payload['order_id'];
             $realOrderId = explode('-', $orderId)[1];
 
             // Get transaction status info
-            $transactionStatus = $midtransNotif->transaction_status;
-            $fraudStatus = $midtransNotif->fraud_status;
-            $transactionId = $midtransNotif->transaction_id;
-            $paymentType = $midtransNotif->payment_type;
-            $grossAmount = $midtransNotif->gross_amount;
+            $transactionStatus = $payload['transaction_status'];
+            $fraudStatus = $payload['fraud_status'] ?? null;
+            $transactionId = $payload['transaction_id'];
+            $paymentType = $payload['payment_type'];
+            $grossAmount = $payload['gross_amount'];
 
             Log::info('Processing order:', [
                 'order_id' => $realOrderId,
