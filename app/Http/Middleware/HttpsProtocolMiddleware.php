@@ -9,8 +9,13 @@ class HttpsProtocolMiddleware
 {
     public function handle($request, Closure $next)
     {
-        // Skip HTTPS redirect for Midtrans notification endpoint
-        if ($request->is('api/payments/notification') || $request->is('payments/notification')) {
+        // Skip HTTPS redirect for Midtrans notification endpoints
+        if (
+            $request->is('api/payments/notification') ||
+            $request->is('api/payments/notification/*') ||
+            $request->is('payments/notification') ||
+            $request->is('payments/notification/*')
+        ) {
             return $next($request);
         }
 
