@@ -109,19 +109,28 @@ class PaymentController extends Controller
     public function handleNotification(Request $request)
     {
         try {
-            Log::info('Raw notification:', ['content' => $request->getContent()]);
+            $notificationBody = json_decode($request->getContent(), true);
+            Log::info('Midtrans Notification:', $notificationBody);
 
-            // Create Midtrans notification instance
-            $notification = new Notification();
+            // Verify signature key
+            $orderId = $notificationBody['order_id'];
+            $statusCode = $notificationBody['status_code'];
+            $grossAmount = $notificationBody['gross_amount'];
+            $serverKey = Config::$serverKey;
+            $input = $orderId . $statusCode . $grossAmount . $serverKey;
+            $calculatedSignature = openssl_digest($input, 'sha512');
+
+            if ($calculatedSignature !== ($notificationBody['signature_key'] ?? '')) {
+                Log::error('Invalid signature key');
+                return response()->json(['status' => 0, 'message' => 'Invalid signature'], 400);
+            }
 
             // Get notification data
-            $orderId = $notification->order_id;
-            $statusCode = $notification->status_code;
-            $transactionStatus = $notification->transaction_status;
-            $transactionId = $notification->transaction_id;
-            $fraudStatus = $notification->fraud_status;
-            $paymentType = $notification->payment_type;
-            $grossAmount = $notification->gross_amount;
+            $transactionStatus = $notificationBody['transaction_status'];
+            $transactionId = $notificationBody['transaction_id'];
+            $fraudStatus = $notificationBody['fraud_status'] ?? null;
+            $paymentType = $notificationBody['payment_type'];
+            $settlementTime = $notificationBody['settlement_time'] ?? null;
 
             Log::info('Notification Data:', [
                 'order_id' => $orderId,
@@ -140,12 +149,19 @@ class PaymentController extends Controller
             $orderStatus = 'pending';
 
             // Handle transaction status based on Midtrans documentation
+            $paymentStatus = 'unpaid';
+            $orderStatus = 'pending';
+
+            // Transaction is successful if:
+            // 1. transaction_status is settlement/capture
+            // 2. status_code is 200
+            // 3. fraud_status is accept (or null for payment methods without fraud detection)
             if ($statusCode == "200") {
                 if ($transactionStatus == "capture") {
                     if ($fraudStatus == "challenge") {
                         $paymentStatus = 'pending';
                         $orderStatus = 'pending';
-                    } else if ($fraudStatus == "accept") {
+                    } else if ($fraudStatus == "accept" || $fraudStatus == null) {
                         $paymentStatus = 'paid';
                         $orderStatus = 'processing';
                     }
@@ -153,14 +169,23 @@ class PaymentController extends Controller
                     $paymentStatus = 'paid';
                     $orderStatus = 'processing';
                 }
-            } else if ($transactionStatus == "pending") {
+            }
+
+            // Handle other transaction statuses
+            if ($transactionStatus == "pending") {
                 $paymentStatus = 'pending';
                 $orderStatus = 'pending';
-            } else if ($transactionStatus == "deny" || $transactionStatus == "cancel") {
+            } else if ($transactionStatus == "deny") {
+                $paymentStatus = 'failed';
+                $orderStatus = 'cancelled';
+            } else if ($transactionStatus == "cancel") {
                 $paymentStatus = 'failed';
                 $orderStatus = 'cancelled';
             } else if ($transactionStatus == "expire") {
                 $paymentStatus = 'expired';
+                $orderStatus = 'cancelled';
+            } else if ($transactionStatus == "failure") {
+                $paymentStatus = 'failed';
                 $orderStatus = 'cancelled';
             }
 
