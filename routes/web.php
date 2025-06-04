@@ -57,8 +57,8 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Payment routes
     $router->post('/payments/create', 'PaymentController@createPayment');
-    $router->addRoute(['GET', 'POST'], '/payments/notification', ['uses' => 'PaymentController@handleNotification', 'as' => 'payment.notification']);
-    $router->addRoute(['GET', 'POST'], '/payments/notification/recurring', ['uses' => 'PaymentController@handleRecurringNotification', 'as' => 'payment.recurring.notification']);
+    $router->post('/payments/notification', ['uses' => 'PaymentController@handleNotification']);
+    $router->post('/payments/notification/recurring', ['uses' => 'PaymentController@handleRecurringNotification']);
     $router->get('/payments/status/{orderId}', 'PaymentController@checkStatus');
 
     // Shipping routes

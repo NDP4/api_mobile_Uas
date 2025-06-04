@@ -110,7 +110,12 @@ class PaymentController extends Controller
     {
         try {
             $notificationBody = json_decode($request->getContent(), true);
-            Log::info('Midtrans Notification:', $notificationBody);
+            Log::info('Midtrans Notification:', ['data' => $notificationBody ?? []]);
+
+            if (!$notificationBody) {
+                Log::error('Empty notification body');
+                return response()->json(['status' => 0, 'message' => 'Invalid notification data'], 400);
+            }
 
             // Verify signature key
             $orderId = $notificationBody['order_id'];
@@ -238,6 +243,101 @@ class PaymentController extends Controller
             return response()->json([
                 'status' => 0,
                 'message' => 'Error processing payment notification'
+            ], 500);
+        }
+    }
+
+    public function handleRecurringNotification(Request $request)
+    {
+        try {
+            $notificationBody = json_decode($request->getContent(), true);
+            Log::info('Midtrans Recurring Notification:', ['data' => $notificationBody ?? []]);
+
+            if (!$notificationBody) {
+                Log::error('Empty recurring notification body');
+                return response()->json(['status' => 0, 'message' => 'Invalid notification data'], 400);
+            }
+
+            // Verify signature key
+            $orderId = $notificationBody['order_id'];
+            $statusCode = $notificationBody['status_code'];
+            $grossAmount = $notificationBody['gross_amount'];
+            $serverKey = Config::$serverKey;
+            $input = $orderId . $statusCode . $grossAmount . $serverKey;
+            $calculatedSignature = openssl_digest($input, 'sha512');
+
+            if ($calculatedSignature !== ($notificationBody['signature_key'] ?? '')) {
+                Log::error('Invalid signature key for recurring notification');
+                return response()->json(['status' => 0, 'message' => 'Invalid signature'], 400);
+            }
+
+            // Get notification data
+            $transactionStatus = $notificationBody['transaction_status'];
+            $transactionId = $notificationBody['transaction_id'];
+            $fraudStatus = $notificationBody['fraud_status'] ?? null;
+            $paymentType = $notificationBody['payment_type'];
+
+            // Extract real order ID from format "ORDER-{id}-{timestamp}"
+            $realOrderId = explode('-', $orderId)[1];
+
+            // Find the order
+            $order = Order::findOrFail($realOrderId);
+
+            $paymentStatus = 'unpaid';
+            $orderStatus = 'pending';
+
+            // Handle transaction status
+            if ($statusCode == "200" && ($transactionStatus == "capture" || $transactionStatus == "settlement")) {
+                if ($fraudStatus == "accept" || $fraudStatus == null) {
+                    $paymentStatus = 'paid';
+                    $orderStatus = 'processing';
+                }
+            }
+
+            DB::beginTransaction();
+
+            // Update order status
+            $order->update([
+                'payment_status' => $paymentStatus,
+                'status' => $orderStatus,
+                'payment_type' => $paymentType,
+                'transaction_id' => $transactionId
+            ]);
+
+            // Create notification for user
+            \App\Models\Notification::create([
+                'user_id' => $order->user_id,
+                'title' => 'Recurring Payment Status Updated',
+                'message' => "Recurring payment for order #$order->id is now $paymentStatus",
+                'type' => 'recurring_payment_status',
+                'data' => [
+                    'order_id' => $order->id,
+                    'payment_status' => $paymentStatus,
+                    'transaction_id' => $transactionId,
+                    'payment_type' => $paymentType
+                ],
+                'order_id' => $order->id,
+                'is_read' => false
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 1,
+                'message' => 'OK',
+                'data' => [
+                    'order_id' => $realOrderId,
+                    'status' => $paymentStatus
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Recurring payment notification error: ' . $e->getMessage());
+            Log::error('Raw notification: ' . $request->getContent());
+
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error processing recurring payment notification'
             ], 500);
         }
     }
