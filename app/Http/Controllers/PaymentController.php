@@ -345,7 +345,65 @@ class PaymentController extends Controller
     public function checkStatus($orderId)
     {
         try {
-            $order = Order::select('payment_status', 'payment_url')->findOrFail($orderId);
+            $order = Order::findOrFail($orderId);
+
+            // Get status from Midtrans API
+            $serverKey = Config::$serverKey;
+            $baseUrl = Config::$isProduction ?
+                'https://api.midtrans.com' :
+                'https://api.sandbox.midtrans.com';
+
+            $midtransOrderId = 'ORDER-' . $order->id . '-' . strtotime($order->created_at);
+            $url = $baseUrl . '/v2/' . $midtransOrderId . '/status';
+
+            $auth = base64_encode($serverKey . ':');
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'Content-Type: application/json',
+                'Authorization: Basic ' . $auth
+            ]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode == 200) {
+                $result = json_decode($response, true);
+
+                // Update order status based on Midtrans status
+                $transactionStatus = $result['transaction_status'];
+                $fraudStatus = $result['fraud_status'] ?? null;
+
+                $paymentStatus = 'unpaid';
+                $orderStatus = 'pending';
+
+                if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
+                    if ($fraudStatus == 'accept' || $fraudStatus == null) {
+                        $paymentStatus = 'paid';
+                        $orderStatus = 'processing';
+                    }
+                }
+
+                $order->update([
+                    'payment_status' => $paymentStatus,
+                    'status' => $orderStatus
+                ]);
+
+                return response()->json([
+                    'status' => 1,
+                    'data' => array_merge(
+                        $result,
+                        [
+                            'payment_status' => $paymentStatus,
+                            'payment_url' => $order->payment_url
+                        ]
+                    )
+                ]);
+            }
 
             return response()->json([
                 'status' => 1,
@@ -355,7 +413,10 @@ class PaymentController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            return response()->json(['status' => 0, 'message' => 'Order not found'], 404);
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error checking status: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
