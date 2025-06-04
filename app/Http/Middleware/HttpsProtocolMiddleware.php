@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
 
 class HttpsProtocolMiddleware
 {
@@ -12,10 +13,15 @@ class HttpsProtocolMiddleware
         // Skip HTTPS redirect for Midtrans notification endpoints
         if (
             $request->is('api/payments/notification') ||
-            $request->is('api/payments/notification/*') ||
+            $request->is('api/payments/notification/recurring') ||
             $request->is('payments/notification') ||
-            $request->is('payments/notification/*')
+            $request->is('payments/notification/recurring')
         ) {
+            Log::info('Midtrans notification received', [
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+                'content' => $request->getContent()
+            ]);
             return $next($request);
         }
 
