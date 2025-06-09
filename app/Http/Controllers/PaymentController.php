@@ -342,10 +342,12 @@ class PaymentController extends Controller
         }
     }
 
-    public function checkStatus($orderId)
+    public function checkStatus(Request $request, $orderId)
     {
         try {
-            $order = Order::findOrFail($orderId);
+            $order = Order::where('id', $orderId)
+                ->where('user_id', $request->user_id)
+                ->firstOrFail();
 
             // Get status from Midtrans API
             $serverKey = Config::$serverKey;
@@ -385,6 +387,9 @@ class PaymentController extends Controller
                     if ($fraudStatus == 'accept' || $fraudStatus == null) {
                         $paymentStatus = 'paid';
                         $orderStatus = 'processing';
+
+                        // Update shipping tracking if payment is successful
+                        $this->updateShippingTracking($order);
                     }
                 }
 
@@ -417,6 +422,25 @@ class PaymentController extends Controller
                 'status' => 0,
                 'message' => 'Error checking status: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function updateShippingTracking($order)
+    {
+        $tracking = \App\Models\ShippingTracking::where('order_id', $order->id)->first();
+        if ($tracking) {
+            $now = now();
+            $tracking->status = 'processing';
+            $tracking->shipping_start_date = $now;
+            $tracking->estimated_arrival = $now->addDays($tracking->etd_days);
+            $tracking->tracking_history = json_encode([
+                [
+                    'status' => 'order_received',
+                    'date' => $now->format('Y-m-d H:i:s'),
+                    'description' => 'Order has been received and is being processed'
+                ]
+            ]);
+            $tracking->save();
         }
     }
 }

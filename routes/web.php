@@ -65,6 +65,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('/shipping/provinces', 'RajaOngkirController@getProvinces');
     $router->get('/shipping/cities', 'RajaOngkirController@getCities');
     $router->post('/shipping/calculate', 'RajaOngkirController@calculateShipping');
+    $router->get('/shipping/tracking/{orderId}', 'RajaOngkirController@getShippingStatus');
 
     // Banner routes
     $router->get('/banners', 'BannerController@index');

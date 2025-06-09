@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -74,6 +75,7 @@ class OrderController extends Controller
     {
         $this->validate($request, [
             'user_id' => 'required|exists:users_elsid,id',
+            'payment_method' => 'required|in:online,cod',
             'items' => 'required|json',
             'shipping_address' => 'required|string',
             'shipping_city' => 'required|string',
@@ -182,6 +184,15 @@ class OrderController extends Controller
 
             // Calculate final total with shipping and discount
             $final_total = $total_amount + $request->shipping_cost - $coupon_discount;
+
+            // Calculate estimated delivery info
+            $estimatedDays = $this->getEstimatedDeliveryDays($request->courier_service);
+            $deliveryStartTime = now();
+            $estimatedDeliveryTime = now()->addDays($estimatedDays);
+
+            // Set initial status based on payment method
+            $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
+            $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
 
             // Create order
             $order = Order::create([

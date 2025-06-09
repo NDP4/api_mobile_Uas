@@ -15,7 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\RouteListCommand::class,
-        StorageLinkCommand::class
+        StorageLinkCommand::class,
+        Commands\UpdateShippingStatus::class
     ];
 
     /**
@@ -26,6 +27,6 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        //
+        $schedule->command('shipping:update-status')->hourly();
     }
 }
