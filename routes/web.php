@@ -59,7 +59,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/payments/create', 'PaymentController@createPayment');
     $router->addRoute(['GET', 'POST'], '/payments/notification', 'PaymentController@handleNotification');
     $router->addRoute(['GET', 'POST'], '/payments/notification/recurring', 'PaymentController@handleRecurringNotification');
-    $router->get('/payments/status/{orderId}', 'PaymentController@checkStatus');
+    $router->get('/payments/status/{orderId}/user/{userId}', 'PaymentController@checkStatus');
 
     // Shipping routes
     $router->get('/shipping/provinces', 'RajaOngkirController@getProvinces');

@@ -10,6 +10,7 @@ use App\Models\ProductVariant;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Notification;
+use App\Models\ShippingTracking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -187,8 +188,8 @@ class OrderController extends Controller
 
             // Calculate estimated delivery info
             $estimatedDays = $this->getEstimatedDeliveryDays($request->courier_service);
-            $deliveryStartTime = now();
-            $estimatedDeliveryTime = now()->addDays($estimatedDays);
+            $deliveryStartTime = Carbon::now();
+            $estimatedDeliveryTime = Carbon::now()->addDays($estimatedDays);
 
             // Set initial status based on payment method
             $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
@@ -382,5 +383,29 @@ class OrderController extends Controller
                 'message' => 'Error creating reorder: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function getEstimatedDeliveryDays($courierService)
+    {
+        // Get shipping tracking info
+        $tracking = ShippingTracking::where('service', $courierService)->first();
+        if ($tracking) {
+            return $tracking->etd_days;
+        }
+
+        // Default estimates based on service type
+        $estimates = [
+            'REG' => 3,  // Regular service
+            'YES' => 1,  // Next day service
+            'OKE' => 4,  // Economy service
+            'EXPRESS' => 2, // Express service
+            'CTCYES' => 1, // City courier next day
+            'CTCREG' => 2  // City courier regular
+        ];
+
+        // Extract service type from full service name
+        $serviceType = strtoupper(preg_replace('/[^A-Za-z]/', '', $courierService));
+
+        return $estimates[$serviceType] ?? 3; // Default to 3 days if service not found
     }
 }

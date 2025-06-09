@@ -6,6 +6,7 @@ use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 use Midtrans\Config;
 use Midtrans\Snap;
 use Midtrans\Notification;
@@ -27,7 +28,14 @@ class PaymentController extends Controller
         ]);
 
         try {
-            $order = Order::with(['user', 'items.product', 'couponUsage.coupon'])->findOrFail($request->order_id);
+            $this->validate($request, [
+                'user_id' => 'required|exists:users_elsid,id'
+            ]);
+
+            $order = Order::where('id', $request->order_id)
+                ->where('user_id', $request->user_id)
+                ->with(['user', 'items.product', 'couponUsage.coupon'])
+                ->firstOrFail();
 
             $items = [];
             foreach ($order->items as $item) {
@@ -342,11 +350,17 @@ class PaymentController extends Controller
         }
     }
 
-    public function checkStatus(Request $request, $orderId)
+    public function checkStatus(Request $request, $orderId, $userId)
     {
         try {
+            // Validate user exists
+            $this->validate($request, [
+                'user_id' => 'exists:users_elsid,id'
+            ]);
+
+            // Find order and verify ownership
             $order = Order::where('id', $orderId)
-                ->where('user_id', $request->user_id)
+                ->where('user_id', $userId)
                 ->firstOrFail();
 
             // Get status from Midtrans API
@@ -429,7 +443,7 @@ class PaymentController extends Controller
     {
         $tracking = \App\Models\ShippingTracking::where('order_id', $order->id)->first();
         if ($tracking) {
-            $now = now();
+            $now = Carbon::now();
             $tracking->status = 'processing';
             $tracking->shipping_start_date = $now;
             $tracking->estimated_arrival = $now->addDays($tracking->etd_days);
