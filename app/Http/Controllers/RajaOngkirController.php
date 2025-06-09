@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 use Carbon\Carbon;
 use App\Models\ShippingTracking;
+use GuzzleHttp\Exception\GuzzleException;
 
 class RajaOngkirController extends Controller
 {

@@ -81,6 +81,12 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Cart routes
     $router->get('/cart/{user_id}', 'CartController@index');
+
+    // Notification routes
+    $router->get('/notifications/{userId}', 'NotificationController@index');
+    $router->get('/notifications/{userId}/unread', 'NotificationController@getUnread');
+    $router->get('/notifications/{userId}/payments', 'NotificationController@getPaymentNotifications');
+    $router->post('/notifications/mark-read', 'NotificationController@markAsRead');
     $router->post('/cart', 'CartController@store');
     $router->put('/cart/{id}', 'CartController@update');
     $router->delete('/cart/{id}', 'CartController@destroy');

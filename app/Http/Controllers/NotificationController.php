@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class NotificationController extends Controller
 {
@@ -42,6 +43,34 @@ class NotificationController extends Controller
             return response()->json([
                 'status' => 0,
                 'message' => 'Error retrieving notifications: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPaymentNotifications($userId, Request $request)
+    {
+        try {
+            $lastCheck = $request->query('last_check');
+
+            $query = Notification::where('user_id', $userId)
+                ->where('type', 'payment_status')
+                ->orderBy('created_at', 'desc');
+
+            if ($lastCheck) {
+                $query->where('created_at', '>', $lastCheck);
+            }
+
+            $notifications = $query->get();
+
+            return response()->json([
+                'status' => 1,
+                'notifications' => $notifications,
+                'server_time' => Carbon::now()->toIso8601String()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Error retrieving payment notifications: ' . $e->getMessage()
             ], 500);
         }
     }
