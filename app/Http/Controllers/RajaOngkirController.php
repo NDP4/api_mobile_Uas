@@ -53,6 +53,32 @@ class RajaOngkirController extends Controller
         }
     }
 
+    public function getCouriers()
+    {
+        $couriers = [
+            [
+                'code' => 'jne',
+                'name' => 'Jalur Nugraha Ekakurir (JNE)',
+                'services' => ['REG', 'YES', 'OKE', 'JTR']
+            ],
+            [
+                'code' => 'tiki',
+                'name' => 'Titipan Kilat (TIKI)',
+                'services' => ['REG', 'ECO', 'ONS']
+            ],
+            [
+                'code' => 'pos',
+                'name' => 'POS Indonesia',
+                'services' => ['Kilat Khusus', 'Express', 'Reguler']
+            ]
+        ];
+
+        return response()->json([
+            'status' => 1,
+            'data' => $couriers
+        ]);
+    }
+
     public function calculateShipping(Request $request)
     {
         try {
@@ -86,8 +112,10 @@ class RajaOngkirController extends Controller
                 foreach ($costs as &$service) {
                     // Convert etd to integer days
                     $etd = str_replace(' HARI', '', $service['cost'][0]['etd']);
-                    $etd = (int) str_replace('-', '', $etd); // Handle ranges like "2-3"
-                    $service['etd_days'] = $etd;
+                    $etdParts = explode('-', $etd);
+                    // Use the maximum value for estimation
+                    $etdDays = isset($etdParts[1]) ? (int)$etdParts[1] : (int)$etdParts[0];
+                    $service['etd_days'] = $etdDays;
 
                     // Save shipping tracking info
                     ShippingTracking::updateOrCreate(
