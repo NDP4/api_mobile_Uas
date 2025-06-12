@@ -57,20 +57,25 @@ class RajaOngkirController extends Controller
     {
         try {
             $this->validate($request, [
-                'origin' => 'required',
                 'destination' => 'required',
                 'weight' => 'required|integer|min:1',
                 'courier' => 'required|in:jne,tiki,pos',
                 'order_id' => 'required|exists:orders_elsid,id'
             ]);
 
+            // Use default origin from env
+            $origin = env('RAJAONGKIR_ORIGIN', '501'); // Default to Jakarta Pusat if not set
+
             $response = $this->client->request('POST', $this->baseUrl . 'cost', [
-                'headers' => ['key' => $this->apiKey],
+                'headers' => [
+                    'key' => $this->apiKey,
+                    'content-type' => 'application/x-www-form-urlencoded'
+                ],
                 'form_params' => [
-                    'origin' => $request->origin,
+                    'origin' => $origin,
                     'destination' => $request->destination,
                     'weight' => $request->weight,
-                    'courier' => $request->courier
+                    'courier' => strtolower($request->courier)
                 ]
             ]);
 
@@ -98,7 +103,10 @@ class RajaOngkirController extends Controller
                 $result['rajaongkir']['results'][0]['costs'] = $costs;
             }
 
-            return response()->json($result);
+            return response()->json([
+                'status' => 1,
+                'data' => $result['rajaongkir'] ?? []
+            ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
