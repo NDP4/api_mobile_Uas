@@ -86,7 +86,7 @@ class RajaOngkirController extends Controller
                 'destination' => 'required',
                 'weight' => 'required|integer|min:1',
                 'courier' => 'required|in:jne,tiki,pos',
-                'order_id' => 'required|exists:orders_elsid,id'
+                // 'order_id' => 'required|exists:orders_elsid,id'
             ]);
 
             // Use default origin from env
