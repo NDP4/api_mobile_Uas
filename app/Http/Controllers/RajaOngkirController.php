@@ -104,7 +104,7 @@ class RajaOngkirController extends Controller
                     'courier' => strtolower($request->courier)
                 ]
             ]);
-
+            return response()->json(json_decode($response->getBody()->getContents(), true));
             // $result = json_decode($response->getBody()->getContents(), true);
 
             // if (isset($result['rajaongkir']['results'][0]['costs'])) {
