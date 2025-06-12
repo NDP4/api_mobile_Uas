@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
-use Carbon\Carbon;
-use App\Models\ShippingTracking;
+// use Carbon\Carbon;
+// use App\Models\ShippingTracking;
 use GuzzleHttp\Exception\GuzzleException;
 
 class RajaOngkirController extends Controller
@@ -105,54 +105,54 @@ class RajaOngkirController extends Controller
                 ]
             ]);
 
-            $result = json_decode($response->getBody()->getContents(), true);
+            // $result = json_decode($response->getBody()->getContents(), true);
 
-            if (isset($result['rajaongkir']['results'][0]['costs'])) {
-                $costs = $result['rajaongkir']['results'][0]['costs'];
-                foreach ($costs as &$service) {
-                    // Convert etd to integer days
-                    $etd = str_replace(' HARI', '', $service['cost'][0]['etd']);
-                    $etdParts = explode('-', $etd);
-                    // Use the maximum value for estimation
-                    $etdDays = isset($etdParts[1]) ? (int)$etdParts[1] : (int)$etdParts[0];
-                    $service['etd_days'] = $etdDays;
+            // if (isset($result['rajaongkir']['results'][0]['costs'])) {
+            //     $costs = $result['rajaongkir']['results'][0]['costs'];
+            //     foreach ($costs as &$service) {
+            //         // Convert etd to integer days
+            //         $etd = str_replace(' HARI', '', $service['cost'][0]['etd']);
+            //         $etdParts = explode('-', $etd);
+            //         // Use the maximum value for estimation
+            //         $etdDays = isset($etdParts[1]) ? (int)$etdParts[1] : (int)$etdParts[0];
+            //         $service['etd_days'] = $etdDays;
 
-                    // Save shipping tracking info
-                    ShippingTracking::updateOrCreate(
-                        ['order_id' => $request->order_id],
-                        [
-                            'courier' => $request->courier,
-                            'service' => $service['service'],
-                            'etd_days' => $etd,
-                            'status' => 'pending'
-                        ]
-                    );
-                }
-                $result['rajaongkir']['results'][0]['costs'] = $costs;
-            }
+            //         // Save shipping tracking info
+            //         ShippingTracking::updateOrCreate(
+            //             ['order_id' => $request->order_id],
+            //             [
+            //                 'courier' => $request->courier,
+            //                 'service' => $service['service'],
+            //                 'etd_days' => $etd,
+            //                 'status' => 'pending'
+            //             ]
+            //         );
+            //     }
+            //     $result['rajaongkir']['results'][0]['costs'] = $costs;
+            // }
 
-            return response()->json([
-                'status' => 1,
-                'data' => $result['rajaongkir'] ?? []
-            ]);
+            // return response()->json([
+            //     'status' => 1,
+            //     'data' => $result['rajaongkir'] ?? []
+            // ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function getShippingStatus($orderId)
-    {
-        try {
-            $tracking = ShippingTracking::where('order_id', $orderId)->firstOrFail();
-            return response()->json([
-                'status' => 1,
-                'data' => $tracking
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 0,
-                'message' => 'Shipping tracking not found'
-            ], 404);
-        }
-    }
+    // public function getShippingStatus($orderId)
+    // {
+    //     try {
+    //         $tracking = ShippingTracking::where('order_id', $orderId)->firstOrFail();
+    //         return response()->json([
+    //             'status' => 1,
+    //             'data' => $tracking
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => 0,
+    //             'message' => 'Shipping tracking not found'
+    //         ], 404);
+    //     }
+    // }
 }
