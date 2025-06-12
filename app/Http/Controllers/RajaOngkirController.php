@@ -104,8 +104,20 @@ class RajaOngkirController extends Controller
                     'courier' => strtolower($request->courier)
                 ]
             ]);
-            return response()->json(json_decode($response->getBody()->getContents(), true));
-            // $result = json_decode($response->getBody()->getContents(), true);
+
+            $result = json_decode($response->getBody()->getContents(), true);
+
+            if (!isset($result['rajaongkir'])) {
+                return response()->json(['error' => 'Invalid response from RajaOngkir API'], 500);
+            }
+
+            if (isset($result['rajaongkir']['status']) && $result['rajaongkir']['status']['code'] !== 200) {
+                return response()->json([
+                    'error' => $result['rajaongkir']['status']['description'] ?? 'Error from RajaOngkir API'
+                ], 400);
+            }
+
+            return response()->json($result);
 
             // if (isset($result['rajaongkir']['results'][0]['costs'])) {
             //     $costs = $result['rajaongkir']['results'][0]['costs'];
