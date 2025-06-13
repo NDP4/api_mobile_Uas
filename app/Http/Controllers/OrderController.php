@@ -187,15 +187,38 @@ class OrderController extends Controller
             // Calculate final total with shipping and discount
             $final_total = $total_amount + $request->shipping_cost - $coupon_discount;
 
-            // Set waktu pengiriman
+            // Calculate estimated delivery info
+            $estimatedDays = $this->getEstimatedDeliveryDays($request->courier_service);
             $deliveryStartTime = Carbon::now();
-            $estimatedDays = $this->extractEstimatedDays($request->etd_days);
-            $estimatedDeliveryTime = $deliveryStartTime->copy()->addDays($estimatedDays);
+            $estimatedDeliveryTime = Carbon::now()->addDays($estimatedDays);
 
-            // Normalize payment method
+            // Set initial status based on payment method
+            $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
+            $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
+
+            // Create order
+            // $order = Order::create([
+            //     'user_id' => $request->user_id,
+            //     'total_amount' => $final_total,
+            //     'shipping_cost' => $request->shipping_cost,
+            //     'courier' => $request->courier,
+            //     'courier_service' => $request->courier_service,
+            //     'shipping_address' => $request->shipping_address,
+            //     'shipping_city' => $request->shipping_city,
+            //     'shipping_province' => $request->shipping_province,
+            //     'shipping_postal_code' => $request->shipping_postal_code
+            // ]);
+            // Normalize and validate payment method
             $paymentMethod = strtolower($request->payment_method);
+            if (!in_array($paymentMethod, ['cod', 'online'])) {
+                throw new \Exception('Invalid payment method. Must be either cod or online');
+            }
+
+            // Set initial status based on payment method
             $paymentStatus = $paymentMethod === 'cod' ? 'pending' : 'unpaid';
             $orderStatus = $paymentMethod === 'cod' ? 'processing' : 'pending';
+
+            Log::info('Creating order with payment method: ' . $paymentMethod);
 
             $order = Order::create([
                 'user_id' => $request->user_id,
@@ -207,30 +230,9 @@ class OrderController extends Controller
                 'shipping_city' => $request->shipping_city,
                 'shipping_province' => $request->shipping_province,
                 'shipping_postal_code' => $request->shipping_postal_code,
-                'payment_method' => $paymentMethod,
+                'payment_method' => $paymentMethod, // Using normalized payment method
                 'payment_status' => $paymentStatus,
-                'status' => $orderStatus,
-                'estimated_days' => $estimatedDays,
-                'delivery_start_time' => $deliveryStartTime,
-                'estimated_delivery_time' => $estimatedDeliveryTime
-            ]);
-
-            // Buat record shipping tracking
-            ShippingTracking::create([
-                'order_id' => $order->id,
-                'courier' => $request->courier,
-                'service' => $request->courier_service,
-                'etd_days' => $estimatedDays,
-                'shipping_start_date' => $deliveryStartTime,
-                'estimated_arrival' => $estimatedDeliveryTime,
-                'status' => 'pending',
-                'tracking_history' => json_encode([
-                    [
-                        'status' => 'order_created',
-                        'date' => $deliveryStartTime->format('Y-m-d H:i:s'),
-                        'description' => 'Order telah dibuat dan menunggu proses pengiriman'
-                    ]
-                ])
+                'status' => $orderStatus
             ]);
 
             // Record coupon usage if applicable
@@ -433,18 +435,5 @@ class OrderController extends Controller
         $serviceType = strtoupper(preg_replace('/[^A-Za-z]/', '', $courierService));
 
         return $estimates[$serviceType] ?? 3; // Default to 3 days if service not found
-    }
-
-    private function extractEstimatedDays($etdString)
-    {
-        // Hapus string 'HARI' jika ada
-        $etdString = strtolower(str_replace(' HARI', '', $etdString));
-
-        // Handle format "2-3" atau "3"
-        if (strpos($etdString, '-') !== false) {
-            $range = explode('-', $etdString);
-            return (int) trim($range[1]); // Ambil estimasi maksimal
-        }
-        return (int) trim($etdString);
     }
 }
