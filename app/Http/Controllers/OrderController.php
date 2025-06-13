@@ -207,6 +207,10 @@ class OrderController extends Controller
             //     'shipping_province' => $request->shipping_province,
             //     'shipping_postal_code' => $request->shipping_postal_code
             // ]);
+            // Set initial status based on payment method
+            $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
+            $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
+
             $order = Order::create([
                 'user_id' => $request->user_id,
                 'total_amount' => $final_total,
@@ -217,7 +221,9 @@ class OrderController extends Controller
                 'shipping_city' => $request->shipping_city,
                 'shipping_province' => $request->shipping_province,
                 'shipping_postal_code' => $request->shipping_postal_code,
-                'payment_method' => $request->payment_method  // Tambahkan ini
+                'payment_method' => $request->payment_method,
+                'payment_status' => $paymentStatus,
+                'status' => $orderStatus
             ]);
 
             // Record coupon usage if applicable
