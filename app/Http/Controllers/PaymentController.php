@@ -23,8 +23,29 @@ class PaymentController extends Controller
 
     public function createPayment(Request $request)
     {
+        // $this->validate($request, [
+        //     'order_id' => 'required|exists:orders_elsid,id'
+        // ]);
+        // $this->validate($request, [
+        //     'order_id' => 'required|exists:orders_elsid,id',
+        //     'total_amount' => 'required|numeric',
+        //     'customer_name' => 'required',
+        //     'customer_email' => 'required|email',
+        //     'shipping_address' => 'required',
+        //     'shipping_city' => 'required',
+        //     'shipping_postal_code' => 'required'
+        // ]);
         $this->validate($request, [
-            'order_id' => 'required|exists:orders_elsid,id'
+            'order_id' => 'required|exists:orders_elsid,id',
+            'user_id' => 'required|exists:users_elsid,id',
+            'total_amount' => 'required|numeric',
+            'customer_name' => 'required',
+            'customer_email' => 'required|email',
+            'customer_phone' => 'nullable',
+            'shipping_address' => 'required',
+            'shipping_city' => 'required',
+            'shipping_postal_code' => 'required',
+            'items' => 'required|array'
         ]);
 
         try {

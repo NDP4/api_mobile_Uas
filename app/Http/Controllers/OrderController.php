@@ -196,6 +196,17 @@ class OrderController extends Controller
             $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
 
             // Create order
+            // $order = Order::create([
+            //     'user_id' => $request->user_id,
+            //     'total_amount' => $final_total,
+            //     'shipping_cost' => $request->shipping_cost,
+            //     'courier' => $request->courier,
+            //     'courier_service' => $request->courier_service,
+            //     'shipping_address' => $request->shipping_address,
+            //     'shipping_city' => $request->shipping_city,
+            //     'shipping_province' => $request->shipping_province,
+            //     'shipping_postal_code' => $request->shipping_postal_code
+            // ]);
             $order = Order::create([
                 'user_id' => $request->user_id,
                 'total_amount' => $final_total,
@@ -205,7 +216,8 @@ class OrderController extends Controller
                 'shipping_address' => $request->shipping_address,
                 'shipping_city' => $request->shipping_city,
                 'shipping_province' => $request->shipping_province,
-                'shipping_postal_code' => $request->shipping_postal_code
+                'shipping_postal_code' => $request->shipping_postal_code,
+                'payment_method' => $request->payment_method  // Tambahkan ini
             ]);
 
             // Record coupon usage if applicable
