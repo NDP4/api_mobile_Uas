@@ -113,4 +113,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
         $router->get('banners', 'AdminController@banners');
         $router->get('coupons', 'AdminController@coupons');
     });
+
+    // Password routes
+    $router->post('user/change-password', 'UserController@changePassword');
 });

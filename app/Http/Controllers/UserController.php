@@ -213,4 +213,40 @@ class UserController extends Controller
             ]
         ]);
     }
+
+    public function changePassword(Request $request)
+    {
+        $this->validate($request, [
+            'user_id' => 'required|exists:users_elsid,id',
+            'old_password' => 'required',
+            'new_password' => 'required|min:6',
+            'confirm_password' => 'required|same:new_password'
+        ]);
+
+        try {
+            $user = User::find($request->user_id);
+
+            // Verifikasi password lama
+            if (!Hash::check($request->old_password, $user->password)) {
+                return response()->json([
+                    'status' => 0,
+                    'message' => 'Password lama tidak sesuai'
+                ], 400);
+            }
+
+            // Update password baru
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            return response()->json([
+                'status' => 1,
+                'message' => 'Password berhasil diubah'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 0,
+                'message' => 'Gagal mengubah password: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
