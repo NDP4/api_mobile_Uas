@@ -391,7 +391,8 @@ class OrderController extends Controller
                 'shipping_postal_code' => $originalOrder->shipping_postal_code,
                 'shipping_cost' => $originalOrder->shipping_cost,
                 'courier' => $originalOrder->courier,
-                'courier_service' => $originalOrder->courier_service
+                'courier_service' => $originalOrder->courier_service,
+                'payment_method' => $request->payment_method ?? 'cod' // Default ke COD jika tidak ada
             ]);
 
             return $this->store($newRequest);
