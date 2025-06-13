@@ -207,9 +207,17 @@ class OrderController extends Controller
             //     'shipping_province' => $request->shipping_province,
             //     'shipping_postal_code' => $request->shipping_postal_code
             // ]);
+            // Normalize and validate payment method
+            $paymentMethod = strtolower($request->payment_method);
+            if (!in_array($paymentMethod, ['cod', 'online'])) {
+                throw new \Exception('Invalid payment method. Must be either cod or online');
+            }
+
             // Set initial status based on payment method
-            $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
-            $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
+            $paymentStatus = $paymentMethod === 'cod' ? 'pending' : 'unpaid';
+            $orderStatus = $paymentMethod === 'cod' ? 'processing' : 'pending';
+
+            Log::info('Creating order with payment method: ' . $paymentMethod);
 
             $order = Order::create([
                 'user_id' => $request->user_id,
@@ -221,7 +229,7 @@ class OrderController extends Controller
                 'shipping_city' => $request->shipping_city,
                 'shipping_province' => $request->shipping_province,
                 'shipping_postal_code' => $request->shipping_postal_code,
-                'payment_method' => $request->payment_method,
+                'payment_method' => $paymentMethod, // Using normalized payment method
                 'payment_status' => $paymentStatus,
                 'status' => $orderStatus
             ]);
@@ -392,7 +400,7 @@ class OrderController extends Controller
                 'shipping_cost' => $originalOrder->shipping_cost,
                 'courier' => $originalOrder->courier,
                 'courier_service' => $originalOrder->courier_service,
-                'payment_method' => $request->payment_method ?? 'cod' // Default ke COD jika tidak ada
+                'payment_method' => $request->payment_method ?? 'cod'
             ]);
 
             return $this->store($newRequest);
