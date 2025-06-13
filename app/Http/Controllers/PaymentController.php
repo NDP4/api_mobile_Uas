@@ -410,6 +410,19 @@ class PaymentController extends Controller
 
             if ($httpCode == 200) {
                 $result = json_decode($response, true);
+                Log::info('Midtrans status response:', ['response' => $result]);
+
+                // Periksa apakah response valid dan memiliki transaction_status
+                if (!$result || !isset($result['transaction_status'])) {
+                    return response()->json([
+                        'status' => 1,
+                        'data' => [
+                            'payment_status' => $order->payment_status,
+                            'payment_url' => $order->payment_url,
+                            'message' => 'Order status not available from payment gateway'
+                        ]
+                    ]);
+                }
 
                 // Update order status based on Midtrans status
                 $transactionStatus = $result['transaction_status'];
