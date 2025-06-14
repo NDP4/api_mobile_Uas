@@ -179,8 +179,18 @@ class ProductController extends Controller
             if ($request->hasFile('images')) {
                 Log::info('Processing images', ['image_count' => count($request->file('images'))]);
 
-                // Create directories if they don't exist
-                $uploadPath = storage_path('app/public/products');
+                // Delete old images
+                foreach ($product->images as $oldImage) {
+                    $oldImagePath = public_path($oldImage->image_url);
+                    if (File::exists($oldImagePath)) {
+                        File::delete($oldImagePath);
+                    }
+                }
+                // Delete old image records
+                ProductImage::where('product_id', $product->id)->delete();
+
+                // Create upload directory if it doesn't exist
+                $uploadPath = public_path('uploads/products');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
@@ -188,13 +198,13 @@ class ProductController extends Controller
                 foreach ($request->file('images') as $index => $image) {
                     $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
 
-                    // Move file to storage
+                    // Move file to public uploads directory
                     $image->move($uploadPath, $fileName);
 
-                    // Save in database with storage path
+                    // Create new image record
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_url' => 'storage/products/' . $fileName,
+                        'image_url' => '/uploads/products/' . $fileName,
                         'image_order' => $index
                     ]);
 
