@@ -192,22 +192,6 @@ class OrderController extends Controller
             $deliveryStartTime = Carbon::now();
             $estimatedDeliveryTime = Carbon::now()->addDays($estimatedDays);
 
-            // Set initial status based on payment method
-            $paymentStatus = $request->payment_method === 'cod' ? 'pending' : 'unpaid';
-            $orderStatus = $request->payment_method === 'cod' ? 'processing' : 'pending';
-
-            // Create order
-            // $order = Order::create([
-            //     'user_id' => $request->user_id,
-            //     'total_amount' => $final_total,
-            //     'shipping_cost' => $request->shipping_cost,
-            //     'courier' => $request->courier,
-            //     'courier_service' => $request->courier_service,
-            //     'shipping_address' => $request->shipping_address,
-            //     'shipping_city' => $request->shipping_city,
-            //     'shipping_province' => $request->shipping_province,
-            //     'shipping_postal_code' => $request->shipping_postal_code
-            // ]);
             // Normalize and validate payment method
             $paymentMethod = strtolower($request->payment_method);
             if (!in_array($paymentMethod, ['cod', 'online'])) {
@@ -220,6 +204,7 @@ class OrderController extends Controller
 
             Log::info('Creating order with payment method: ' . $paymentMethod);
 
+            // Create the order with delivery estimates
             $order = Order::create([
                 'user_id' => $request->user_id,
                 'total_amount' => $final_total,
@@ -230,9 +215,12 @@ class OrderController extends Controller
                 'shipping_city' => $request->shipping_city,
                 'shipping_province' => $request->shipping_province,
                 'shipping_postal_code' => $request->shipping_postal_code,
-                'payment_method' => $paymentMethod, // Using normalized payment method
+                'payment_method' => $paymentMethod,
                 'payment_status' => $paymentStatus,
-                'status' => $orderStatus
+                'status' => $orderStatus,
+                'estimated_days' => $estimatedDays,
+                'delivery_start_time' => $deliveryStartTime,
+                'estimated_delivery_time' => $estimatedDeliveryTime
             ]);
 
             // Record coupon usage if applicable
@@ -423,17 +411,33 @@ class OrderController extends Controller
 
         // Default estimates based on service type
         $estimates = [
-            'REG' => 3,  // Regular service
-            'YES' => 1,  // Next day service
-            'OKE' => 4,  // Economy service
-            'EXPRESS' => 2, // Express service
-            'CTCYES' => 1, // City courier next day
-            'CTCREG' => 2  // City courier regular
+            // JNE Services
+            'JNEREG' => 3,  // Regular service
+            'YES' => 1,     // Next day service
+            'OKE' => 4,     // Economy service
+            'JTR' => 2,     // JNE Trucking
+
+            // TIKI Services
+            'ECO' => 5,     // TIKI Economy
+            'TIKIREG' => 3, // TIKI Regular
+            'ONS' => 1,     // TIKI Over Night Service
+            'TDS' => 1,     // TIKI Same Day Service
+
+            // SiCepat Services
+            'SICEPAREG' => 3, // SiCepat Regular
+            'BEST' => 2,      // SiCepat Best
+            'GOKIL' => 1,     // SiCepat Gokil (Same Day)
+
+            // Default fallback values
+            'EXPRESS' => 2,   // Express service
+            'CTCYES' => 1,   // City courier next day
+            'CTCREG' => 2    // City courier regular
         ];
 
         // Extract service type from full service name
         $serviceType = strtoupper(preg_replace('/[^A-Za-z]/', '', $courierService));
 
-        return $estimates[$serviceType] ?? 3; // Default to 3 days if service not found
+        // Try to match the service type, if not found return default value of 3 days
+        return $estimates[$serviceType] ?? 3;
     }
 }
