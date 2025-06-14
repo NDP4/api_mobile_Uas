@@ -179,20 +179,27 @@ class ProductController extends Controller
             if ($request->hasFile('images')) {
                 Log::info('Processing images', ['image_count' => count($request->file('images'))]);
 
-                $uploadPath = 'uploads/products';
+                // Create directories if they don't exist
+                $uploadPath = storage_path('app/public/products');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0777, true);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
                     $fileName = time() . '_' . $index . '_' . str_replace(' ', '_', $image->getClientOriginalName());
+
+                    // Move file to storage
                     $image->move($uploadPath, $fileName);
 
+                    // Save in database with storage path
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_url' => 'uploads/products/' . $fileName,
+                        'image_url' => 'storage/products/' . $fileName,
                         'image_order' => $index
                     ]);
+
+                    // Set proper permissions
+                    chmod($uploadPath . '/' . $fileName, 0644);
                 }
             }
 
