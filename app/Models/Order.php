@@ -23,7 +23,9 @@ class Order extends Model
         'shipping_cost',
         'courier',
         'courier_service',
-        'estimated_day'
+        'estimated_days',
+        'delivery_start_time',
+        'estimated_delivery_time'
     ];
 
     public function user()
