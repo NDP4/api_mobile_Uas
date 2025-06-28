@@ -116,4 +116,11 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Password routes
     $router->post('user/change-password', 'UserController@changePassword');
+
+    // User Address routes
+    $router->get('/users/{userId}/addresses', 'UserAddressController@index');
+    $router->post('/users/{userId}/addresses', 'UserAddressController@store');
+    $router->put('/users/{userId}/addresses/{addressId}', 'UserAddressController@update');
+    $router->delete('/users/{userId}/addresses/{addressId}', 'UserAddressController@destroy');
+    $router->post('/users/{userId}/addresses/{addressId}/set-default', 'UserAddressController@setDefault');
 });
